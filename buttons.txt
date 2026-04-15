@@ -1,0 +1,77 @@
+                        <!-- Boost Button -->
+                        <Button Grid.Column="0"
+                                Command="{Binding BoostSystemCommand}"
+                                IsEnabled="{Binding IsBoostEnabled}"
+                                Margin="0,0,8,0"
+                                Height="45"
+                                Foreground="White"
+                                FontWeight="Bold"
+                                FontSize="14"
+                                BorderThickness="0"
+                                Cursor="Hand">
+                            <Button.Background>
+                                <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
+                                    <GradientStop Color="#00ADEF" Offset="0.0"/>
+                                    <GradientStop Color="#0055AA" Offset="1.0"/>
+                                </LinearGradientBrush>
+                            </Button.Background>
+                            <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
+                                <TextBlock Text="&#xE724;" FontFamily="Segoe MDL2 Assets" FontSize="16" Margin="0,0,8,0" VerticalAlignment="Center"/>
+                                <TextBlock Text="{Binding BoostButtonText}" VerticalAlignment="Center"/>
+                            </StackPanel>
+                            <Button.Template>
+                                <ControlTemplate TargetType="Button">
+                                    <Border x:Name="border" Background="{TemplateBinding Background}" CornerRadius="8">
+                                        <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                    </Border>
+                                    <ControlTemplate.Triggers>
+                                        <Trigger Property="IsMouseOver" Value="True">
+                                             <Setter TargetName="border" Property="Opacity" Value="0.9"/>
+                                        </Trigger>
+                                        <Trigger Property="IsPressed" Value="True">
+                                             <Setter TargetName="border" Property="Opacity" Value="0.8"/>
+                                        </Trigger>
+                                        <DataTrigger Binding="{Binding IsBoosting}" Value="True">
+                                            <Setter TargetName="border" Property="Background" Value="#444444"/>
+                                        </DataTrigger>
+                                    </ControlTemplate.Triggers>
+                                </ControlTemplate>
+                            </Button.Template>
+                        </Button>
+
+                        <!-- Clean Disk Button -->
+                        <Button Grid.Column="1"
+                                Click="Button_DiskCleanup_Click"
+                                Margin="8,0,0,0"
+                                Height="45"
+                                Foreground="White"
+                                FontWeight="Bold"
+                                FontSize="14"
+                                BorderThickness="0"
+                                Cursor="Hand">
+                            <Button.Background>
+                                <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
+                                    <GradientStop Color="#00ADEF" Offset="0.0"/>
+                                    <GradientStop Color="#8A2BE2" Offset="1.0"/>
+                                </LinearGradientBrush>
+                            </Button.Background>
+                            <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
+                                <TextBlock Text="&#xE74C;" FontFamily="Segoe MDL2 Assets" FontSize="18" Margin="0,0,8,0" VerticalAlignment="Center"/>
+                                <TextBlock x:Name="TxtDiskCleanup" Text="CLEAN DISK" VerticalAlignment="Center"/>
+                            </StackPanel>
+                            <Button.Template>
+                                <ControlTemplate TargetType="Button">
+                                    <Border x:Name="border" Background="{TemplateBinding Background}" CornerRadius="8">
+                                        <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                    </Border>
+                                    <ControlTemplate.Triggers>
+                                        <Trigger Property="IsMouseOver" Value="True">
+                                            <Setter TargetName="border" Property="Opacity" Value="0.9"/>
+                                        </Trigger>
+                                        <Trigger Property="IsPressed" Value="True">
+                                            <Setter TargetName="border" Property="Opacity" Value="0.8"/>
+                                        </Trigger>
+                                    </ControlTemplate.Triggers>
+                                </ControlTemplate>
+                            </Button.Template>
+                        </Button>

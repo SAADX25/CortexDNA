@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+  <!-- Premium Light Theme Colors (Clean & Modern) -->
+  <Color x:Key="AppBackgroundColor">#FFF8FAFC</Color> <!-- Slate 50 for a very soft backdrop -->
+  <Color x:Key="PrimaryTextColor">#FF0F172A</Color> <!-- Slate 900 for high readability -->
+  <Color x:Key="SecondaryTextColor">#FF64748B</Color> <!-- Slate 500 for subtle text -->
+  <Color x:Key="CardBackgroundColor">#FFFFFFFF</Color> <!-- Pure white for cards to pop out -->
+  <Color x:Key="CardBorderColor">#FFE2E8F0</Color> <!-- Slate 200 for thin elegant borders -->
+  <Color x:Key="AccentColor">#FF2563EB</Color> <!-- vibrant Blue-600 -->
+
+</ResourceDictionary>

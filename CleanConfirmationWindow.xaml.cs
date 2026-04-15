@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Windows;
 using System.Windows.Input;
 
@@ -6,7 +7,7 @@ namespace CortexDNA
 {
     public partial class CleanConfirmationWindow : Window
     {
-        public CleanConfirmationWindow(int fileCount, double totalSizeMB)
+        public CleanConfirmationWindow(int fileCount, double totalSizeMB, List<MainWindow.CleanupLocationItem> locations)
         {
             InitializeComponent();
             
@@ -19,6 +20,7 @@ namespace CortexDNA
                 : $"{totalSizeMB:F0} MB";
 
             TxtSummary.Text = $"Found {fileCount:N0} files taking up {sizeText}";
+            ListLocations.ItemsSource = locations;
         }
 
         private void BtnClean_Click(object sender, RoutedEventArgs e)

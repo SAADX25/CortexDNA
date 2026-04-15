@@ -1,0 +1,44 @@
+                <TextBlock FontSize="16" FontWeight="SemiBold" VerticalAlignment="Center">
+                    <TextBlock.Foreground>
+                        <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
+                            <GradientStop Color="#00ADEF" Offset="0.0" x:Name="GradientColor1"/>
+                            <GradientStop Color="#88CCFF" Offset="1.0" x:Name="GradientColor2"/>
+                        </LinearGradientBrush>
+                    </TextBlock.Foreground>
+                    <TextBlock.Style>
+                        <Style TargetType="TextBlock">
+                            <Setter Property="Text" Value="Cortex DNA"/>
+                            <Style.Triggers>
+                                <EventTrigger RoutedEvent="Loaded">
+                                    <BeginStoryboard>
+                                        <Storyboard>
+                                            <ColorAnimation Storyboard.TargetProperty="Foreground.(LinearGradientBrush.GradientStops)[0].(GradientStop.Color)" From="#0055AA" To="#00ADEF" Duration="0:0:3" AutoReverse="True" RepeatBehavior="Forever"/>
+                                            <ColorAnimation Storyboard.TargetProperty="Foreground.(LinearGradientBrush.GradientStops)[1].(GradientStop.Color)" From="#00ADEF" To="#88CCFF" Duration="0:0:3" AutoReverse="True" RepeatBehavior="Forever"/>
+                                        </Storyboard>
+                                    </BeginStoryboard>
+                                </EventTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </TextBlock.Style>
+                </TextBlock>
+                <Border CornerRadius="8" Margin="10,0,0,0" Padding="8,2" VerticalAlignment="Center">
+                    <Border.Style>
+                        <Style TargetType="Border">
+                            <Setter Property="Background" Value="#333"/>
+                            <Style.Triggers>
+                                <EventTrigger RoutedEvent="Loaded">
+                                    <BeginStoryboard>
+                                        <Storyboard>
+                                            <ColorAnimation Storyboard.TargetProperty="Background.(SolidColorBrush.Color)" From="#333" To="#444" Duration="0:0:2.5" AutoReverse="True" RepeatBehavior="Forever"/>
+                                            <DoubleAnimation Storyboard.TargetProperty="(Border.Effect).(DropShadowEffect.BlurRadius)" From="0" To="12" Duration="0:0:2.5" AutoReverse="True" RepeatBehavior="Forever"/>
+                                        </Storyboard>
+                                    </BeginStoryboard>
+                                </EventTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </Border.Style>
+                    <Border.Effect>
+                        <DropShadowEffect Color="#88CCFF" BlurRadius="0" ShadowDepth="0" Opacity="0.8"/>
+                    </Border.Effect>
+                    <TextBlock Text="Developer Edition" FontSize="11" Foreground="#88CCFF" VerticalAlignment="Center"/>
+                </Border>

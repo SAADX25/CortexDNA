@@ -1,0 +1,37 @@
+        public MainWindow()
+        {
+            InitializeComponent();
+            InitializeTrayIcon();
+            this.Loaded += MainWindow_Loaded;
+        }
+
+        private void MainWindow_Loaded(object sender, RoutedEventArgs e)
+        {
+            int delayMs = 0;
+            foreach (UIElement child in UtilitiesWrapPanel.Children)
+            {
+                if (child is System.Windows.Controls.Button btn)
+                {
+                    btn.Opacity = 0;
+                    
+                    var opacityAnim = new System.Windows.Media.Animation.DoubleAnimation(0, 1, TimeSpan.FromMilliseconds(400));
+                    opacityAnim.BeginTime = TimeSpan.FromMilliseconds(delayMs);
+                    
+                    if (btn.RenderTransform is System.Windows.Media.TransformGroup group)
+                    {
+                        var translate = group.Children[1] as System.Windows.Media.TranslateTransform;
+                        if (translate != null)
+                        {
+                            translate.Y = 20;
+                            var translateAnim = new System.Windows.Media.Animation.DoubleAnimation(20, 0, TimeSpan.FromMilliseconds(400));
+                            translateAnim.BeginTime = TimeSpan.FromMilliseconds(delayMs);
+                            translateAnim.EasingFunction = new System.Windows.Media.Animation.BackEase { EasingMode = System.Windows.Media.Animation.EasingMode.EaseOut, Amplitude = 0.5 };
+                            translate.BeginAnimation(System.Windows.Media.TranslateTransform.YProperty, translateAnim);
+                        }
+                    }
+                    
+                    btn.BeginAnimation(UIElement.OpacityProperty, opacityAnim);
+                    delayMs += 75; // Stagger by 75ms
+                }
+            }
+        }

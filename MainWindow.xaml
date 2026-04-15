@@ -5,8 +5,8 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:vm="clr-namespace:CortexDNA.ViewModels"
         mc:Ignorable="d"
-        Title="Cortex DNA - System Monitor (Developer Edition)" Height="750" Width="1100"
-        Background="#D0202020" Foreground="White" FontFamily="Segoe UI Variable Display, Segoe UI"
+        Title="Cortex DNA - System Monitor (Developer Edition)" Height="750" Width="1100" MinWidth="1050" MinHeight="750" WindowStartupLocation="CenterScreen"
+        Background="{DynamicResource AppBackgroundBrush}" Foreground="{DynamicResource PrimaryTextBrush}" FontFamily="Segoe UI Variable Display, Segoe UI"
         WindowStyle="None" AllowsTransparency="True" ResizeMode="CanResizeWithGrip">
     
     <Window.DataContext>
@@ -14,14 +14,21 @@
     </Window.DataContext>
 
     <Window.Resources>
+        <!-- Theme brushes (populated at runtime by code-behind) -->
+        <SolidColorBrush x:Key="AppBackgroundBrush" Color="{DynamicResource AppBackgroundColor}" Opacity="0.94"/>
+        <SolidColorBrush x:Key="PrimaryTextBrush" Color="{DynamicResource PrimaryTextColor}"/>
+        <SolidColorBrush x:Key="SecondaryTextBrush" Color="{DynamicResource SecondaryTextColor}"/>
+        <SolidColorBrush x:Key="CardBackgroundBrush" Color="{DynamicResource CardBackgroundColor}"/>
+        <SolidColorBrush x:Key="CardBorderBrush" Color="{DynamicResource CardBorderColor}"/>
+        <SolidColorBrush x:Key="AccentBrush" Color="{DynamicResource AccentColor}"/>
         <!-- Modern Card Style -->
         <Style x:Key="CardStyle" TargetType="Border">
-            <Setter Property="Background" Value="#252526"/>
-            <Setter Property="BorderBrush" Value="#333"/>
+            <Setter Property="Background" Value="{DynamicResource CardBackgroundBrush}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource CardBorderBrush}"/>
             <Setter Property="BorderThickness" Value="1"/>
             <Setter Property="CornerRadius" Value="8"/>
-            <Setter Property="Margin" Value="5"/>
-            <Setter Property="Padding" Value="20"/>
+            <Setter Property="Margin" Value="10"/>
+            <Setter Property="Padding" Value="24"/>
             <Setter Property="Effect">
                 <Setter.Value>
                     <DropShadowEffect Color="Black" BlurRadius="10" ShadowDepth="2" Opacity="0.3" RenderingBias="Performance"/>
@@ -30,19 +37,19 @@
         </Style>
 
         <Style TargetType="TextBlock">
-            <Setter Property="Foreground" Value="#AAAAAA"/>
-            <Setter Property="FontFamily" Value="Segoe UI"/>
+            <Setter Property="Foreground" Value="{DynamicResource SecondaryTextBrush}"/>
+            <Setter Property="FontFamily" Value="Segoe UI Variable Display, Segoe UI"/>
             <Setter Property="FontSize" Value="12"/>
         </Style>
 
         <Style x:Key="TitleText" TargetType="TextBlock">
-            <Setter Property="Foreground" Value="#E0E0E0"/>
+            <Setter Property="Foreground" Value="{DynamicResource PrimaryTextBrush}"/>
             <Setter Property="FontSize" Value="16"/>
             <Setter Property="FontWeight" Value="SemiBold"/>
         </Style>
 
         <Style x:Key="ValueText" TargetType="TextBlock">
-            <Setter Property="Foreground" Value="White"/>
+            <Setter Property="Foreground" Value="{DynamicResource PrimaryTextBrush}"/>
             <Setter Property="FontSize" Value="24"/>
             <Setter Property="FontWeight" Value="Bold"/>
         </Style>
@@ -51,26 +58,29 @@
         <Style x:Key="IconStyle" TargetType="TextBlock">
             <Setter Property="FontFamily" Value="Segoe MDL2 Assets"/>
             <Setter Property="FontSize" Value="20"/>
-            <Setter Property="Foreground" Value="#00ADEF"/>
+            <Setter Property="Foreground" Value="{DynamicResource AccentBrush}"/>
             <Setter Property="VerticalAlignment" Value="Center"/>
             <Setter Property="Margin" Value="0,0,15,0"/>
         </Style>
         
         <!-- Utility Ghost Button Style -->
         <Style x:Key="UtilityButtonStyle" TargetType="Button">
-            <Setter Property="Background" Value="#2D2D30"/>
-            <Setter Property="Foreground" Value="White"/>
-            <Setter Property="BorderBrush" Value="#444"/>
+            <Setter Property="Background" Value="{DynamicResource CardBackgroundBrush}"/>
+            <Setter Property="Foreground" Value="{DynamicResource PrimaryTextBrush}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource CardBorderBrush}"/>
             <Setter Property="BorderThickness" Value="1"/>
-            <Setter Property="Margin" Value="8"/>
-            <Setter Property="Padding" Value="10"/>
-            <Setter Property="Width" Value="110"/>
-            <Setter Property="Height" Value="90"/>
+            <Setter Property="Margin" Value="12"/>
+            <Setter Property="Padding" Value="16"/>
+            <Setter Property="Width" Value="120"/>
+            <Setter Property="Height" Value="100"/>
             <Setter Property="FontSize" Value="11"/>
             <Setter Property="RenderTransformOrigin" Value="0.5,0.5"/>
             <Setter Property="RenderTransform">
                 <Setter.Value>
-                    <ScaleTransform ScaleX="1" ScaleY="1"/>
+                    <TransformGroup>
+                        <ScaleTransform ScaleX="1" ScaleY="1" x:Name="ScaleT"/>
+                        <TranslateTransform Y="0" x:Name="TransT"/>
+                    </TransformGroup>
                 </Setter.Value>
             </Setter>
             <Setter Property="Template">
@@ -78,25 +88,42 @@
                     <ControlTemplate TargetType="Button">
                         <Border x:Name="border" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="8">
                             <Border.Effect>
-                                <DropShadowEffect Color="Black" BlurRadius="5" ShadowDepth="2" Opacity="0.3" RenderingBias="Performance"/>
+                                <DropShadowEffect Color="{DynamicResource AccentColor}" BlurRadius="5" ShadowDepth="2" Opacity="0.0" RenderingBias="Performance"/>
                             </Border.Effect>
                             <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
                         </Border>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsMouseOver" Value="True">
-                                <Setter TargetName="border" Property="Background" Value="#3E3E42"/>
-                                <Setter TargetName="border" Property="BorderBrush" Value="#00ADEF"/>
-                                <Setter Property="RenderTransform">
-                                    <Setter.Value>
-                                        <ScaleTransform ScaleX="1.05" ScaleY="1.05"/>
-                                    </Setter.Value>
-                                </Setter>
+                                <Setter TargetName="border" Property="Background" Value="{DynamicResource HoverBackgroundBrush}"/>
+                                <Setter TargetName="border" Property="BorderBrush" Value="{DynamicResource AccentBrush}"/>
+                                <Trigger.EnterActions>
+                                    <BeginStoryboard>
+                                        <Storyboard>
+                                            <DoubleAnimation Storyboard.TargetProperty="RenderTransform.(TransformGroup.Children)[0].(ScaleTransform.ScaleX)" To="1.05" Duration="0:0:0.15"/>
+                                            <DoubleAnimation Storyboard.TargetProperty="RenderTransform.(TransformGroup.Children)[0].(ScaleTransform.ScaleY)" To="1.05" Duration="0:0:0.15"/>
+                                            <DoubleAnimation Storyboard.TargetName="border" Storyboard.TargetProperty="(Border.Effect).(DropShadowEffect.Opacity)" To="0.8" Duration="0:0:0.15"/>
+                                            <DoubleAnimation Storyboard.TargetName="border" Storyboard.TargetProperty="(Border.Effect).(DropShadowEffect.BlurRadius)" To="20" Duration="0:0:0.15"/>
+                                        </Storyboard>
+                                    </BeginStoryboard>
+                                </Trigger.EnterActions>
+                                <Trigger.ExitActions>
+                                    <BeginStoryboard>
+                                        <Storyboard>
+                                            <DoubleAnimation Storyboard.TargetProperty="RenderTransform.(TransformGroup.Children)[0].(ScaleTransform.ScaleX)" To="1.0" Duration="0:0:0.15"/>
+                                            <DoubleAnimation Storyboard.TargetProperty="RenderTransform.(TransformGroup.Children)[0].(ScaleTransform.ScaleY)" To="1.0" Duration="0:0:0.15"/>
+                                            <DoubleAnimation Storyboard.TargetName="border" Storyboard.TargetProperty="(Border.Effect).(DropShadowEffect.Opacity)" To="0.0" Duration="0:0:0.15"/>
+                                            <DoubleAnimation Storyboard.TargetName="border" Storyboard.TargetProperty="(Border.Effect).(DropShadowEffect.BlurRadius)" To="5" Duration="0:0:0.15"/>
+                                        </Storyboard>
+                                    </BeginStoryboard>
+                                </Trigger.ExitActions>
                             </Trigger>
                             <Trigger Property="IsPressed" Value="True">
-                                <Setter TargetName="border" Property="Background" Value="#222225"/>
+                                <Setter TargetName="border" Property="Background" Value="{DynamicResource PressedBackgroundBrush}"/>
                                 <Setter Property="RenderTransform">
                                     <Setter.Value>
-                                        <ScaleTransform ScaleX="0.95" ScaleY="0.95"/>
+                                        <TransformGroup>
+                                            <ScaleTransform ScaleX="0.95" ScaleY="0.95"/>
+                                        </TransformGroup>
                                     </Setter.Value>
                                 </Setter>
                             </Trigger>
@@ -119,7 +146,7 @@
                                     <Thumb>
                                         <Thumb.Template>
                                             <ControlTemplate TargetType="Thumb">
-                                                <Border Background="#00ADEF" CornerRadius="4" Margin="1,0"/>
+                                                <Border Background="{DynamicResource AccentBrush}" CornerRadius="8" Margin="1,0"/>
                                             </ControlTemplate>
                                         </Thumb.Template>
                                     </Thumb>
@@ -133,7 +160,7 @@
         <!-- Window Control Button Style -->
         <Style x:Key="WindowControlButtonStyle" TargetType="Button">
             <Setter Property="Background" Value="Transparent"/>
-            <Setter Property="Foreground" Value="#AAA"/>
+            <Setter Property="Foreground" Value="{DynamicResource SecondaryTextBrush}"/>
             <Setter Property="Width" Value="46"/>
             <Setter Property="Height" Value="32"/>
             <Setter Property="BorderThickness" Value="0"/>
@@ -147,11 +174,11 @@
                         </Border>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsMouseOver" Value="True">
-                                <Setter TargetName="border" Property="Background" Value="#33FFFFFF"/>
-                                <Setter Property="Foreground" Value="White"/>
+                                <Setter TargetName="border" Property="Background" Value="{DynamicResource HoverBackgroundBrush}"/>
+                                <Setter Property="Foreground" Value="{DynamicResource PrimaryTextBrush}"/>
                             </Trigger>
                             <Trigger Property="IsPressed" Value="True">
-                                <Setter TargetName="border" Property="Background" Value="#44FFFFFF"/>
+                                <Setter TargetName="border" Property="Background" Value="{DynamicResource PressedBackgroundBrush}"/>
                             </Trigger>
                         </ControlTemplate.Triggers>
                     </ControlTemplate>
@@ -159,14 +186,14 @@
             </Setter>
         </Style>
 
-        <Style x:Key="CloseButtonStyle" TargetType="Button" BasedOn="{StaticResource WindowControlButtonStyle}">
+                <Style x:Key="CloseButtonStyle" TargetType="Button" BasedOn="{StaticResource WindowControlButtonStyle}">
             <Style.Triggers>
                 <Trigger Property="IsMouseOver" Value="True">
-                    <Setter Property="Background" Value="#E81123"/>
-                    <Setter Property="Foreground" Value="White"/>
+                    <Setter Property="Background" Value="{DynamicResource ErrorBrush}"/>
+                    <Setter Property="Foreground" Value="{DynamicResource PrimaryTextBrush}"/>
                 </Trigger>
                 <Trigger Property="IsPressed" Value="True">
-                    <Setter Property="Background" Value="#B80C1B"/>
+                    <Setter Property="Background" Value="{DynamicResource ErrorBrush}"/>
                 </Trigger>
             </Style.Triggers>
         </Style>
@@ -183,7 +210,7 @@
         </Grid.RowDefinitions>
 
         <!-- Custom Title Bar -->
-        <Grid Grid.Row="0" Background="#1F1F1F" MouseDown="TitleBar_MouseDown">
+        <Grid Grid.Row="0" Background="{DynamicResource CardBackgroundBrush}">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="Auto"/>
                 <ColumnDefinition Width="*"/>
@@ -191,19 +218,22 @@
             </Grid.ColumnDefinitions>
 
             <!-- Left: Title & Badge -->
-            <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="15,0,0,0">
-                <TextBlock Text="" FontFamily="Segoe MDL2 Assets" FontSize="18" Foreground="#00ADEF" Margin="0,0,10,0" VerticalAlignment="Center"/>
-                <TextBlock Text="Cortex DNA" FontSize="16" FontWeight="SemiBold" Foreground="White" VerticalAlignment="Center"/>
-                <Border Background="#333" CornerRadius="4" Margin="10,0,0,0" Padding="8,2" VerticalAlignment="Center">
-                    <TextBlock Text="Developer Edition" FontSize="11" Foreground="#88CCFF" VerticalAlignment="Center"/>
+            <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center" Margin="15,0,0,0">
+                <TextBlock Text="" FontFamily="Segoe MDL2 Assets" FontSize="18" Foreground="{DynamicResource AccentBrush}" Margin="0,0,10,0" VerticalAlignment="Center"/>
+                <TextBlock Text="Cortex DNA" FontSize="16" FontWeight="SemiBold" Foreground="{DynamicResource PrimaryTextBrush}" VerticalAlignment="Center"/>
+                <Border Background="{DynamicResource BadgeBackgroundBrush}" CornerRadius="8" Margin="10,0,0,0" Padding="8,2" VerticalAlignment="Center">
+                    <TextBlock Text="Developer Edition" FontSize="11" Foreground="{DynamicResource AccentBrush}" VerticalAlignment="Center"/>
                 </Border>
             </StackPanel>
 
+            <!-- Middle: Draggable area (isolated) -->
+            <Border Grid.Column="1" Background="Transparent" MouseLeftButtonDown="TitleBar_MouseDown" Cursor="SizeAll"/>
+
             <!-- Right: Window Controls -->
-            <StackPanel Grid.Column="2" Orientation="Horizontal">
+            <StackPanel Grid.Column="2" Orientation="Horizontal" WindowChrome.IsHitTestVisibleInChrome="True">
                 <!-- Settings Button (Gear) -->
                 <Button Style="{StaticResource WindowControlButtonStyle}" Click="OpenSettings_Click" ToolTip="Settings" Width="40" Margin="0,0,5,0" WindowChrome.IsHitTestVisibleInChrome="True">
-                    <TextBlock Text="&#xE713;" FontFamily="Segoe MDL2 Assets" FontSize="14" Foreground="White"/>
+                    <TextBlock Text="&#xE713;" FontFamily="Segoe MDL2 Assets" FontSize="14" Foreground="{DynamicResource PrimaryTextBrush}"/>
                     <Button.ContextMenu>
                         <ContextMenu>
                             <MenuItem Header="Run on Startup" IsCheckable="True" IsChecked="{Binding RunOnStartup}" />
@@ -212,14 +242,60 @@
                 </Button>
 
                 <Button Style="{StaticResource WindowControlButtonStyle}" Click="OpenAbout_Click" ToolTip="About" Width="40" Margin="0,0,5,0" WindowChrome.IsHitTestVisibleInChrome="True">
-                    <TextBlock Text="&#xE946;" FontFamily="Segoe MDL2 Assets" FontSize="14" Foreground="White"/>
+                    <TextBlock Text="&#xE946;" FontFamily="Segoe MDL2 Assets" FontSize="14" Foreground="{DynamicResource PrimaryTextBrush}"/>
                 </Button>
                 
-                <Button Style="{StaticResource WindowControlButtonStyle}" Click="OpenUpdates_Click" ToolTip="Check for Updates (v1.0.0)" Width="40" Margin="0,0,10,0" WindowChrome.IsHitTestVisibleInChrome="True">
-                    <TextBlock Text="&#xEBC3;" FontFamily="Segoe MDL2 Assets" FontSize="14" Foreground="White"/>
+                <Button Style="{StaticResource WindowControlButtonStyle}" Click="OpenUpdates_Click" ToolTip="Check for Updates (v1.3.5 all)" Width="40" Margin="0,0,10,0" WindowChrome.IsHitTestVisibleInChrome="True">
+                    <TextBlock Text="&#xEBC3;" FontFamily="Segoe MDL2 Assets" FontSize="14" Foreground="{DynamicResource PrimaryTextBrush}"/>
                 </Button>
 
-                <TextBlock Text="{Binding SystemInfo.Uptime, StringFormat='Uptime: {0}'}" Foreground="#88FF88" FontSize="12" VerticalAlignment="Center" Margin="0,0,20,0"/>
+                <!-- Theme & Transparency Controls -->
+                <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,10,0">
+                    <ToggleButton x:Name="ThemeToggle" Width="48" Height="28" Margin="0,0,10,0" Checked="ThemeToggle_Checked" Unchecked="ThemeToggle_Unchecked" ToolTip="Toggle Dark / Light Mode">
+                        <ToggleButton.Template>
+                            <ControlTemplate TargetType="ToggleButton">
+                                <Grid Width="48" Height="28">
+                                    <Border x:Name="SwitchBorder" CornerRadius="16" Background="{DynamicResource CardBorderBrush}" />
+                                        <Ellipse x:Name="SwitchThumb" Width="22" Height="22" Fill="{DynamicResource PrimaryTextBrush}" Margin="3" HorizontalAlignment="Left" />
+                                </Grid>
+                                <ControlTemplate.Triggers>
+                                    <Trigger Property="IsChecked" Value="True">
+                                        <Setter TargetName="SwitchBorder" Property="Background" Value="{DynamicResource AccentBrush}"/>
+                                        <Setter TargetName="SwitchThumb" Property="HorizontalAlignment" Value="Right"/>
+                                    </Trigger>
+                                </ControlTemplate.Triggers>
+                            </ControlTemplate>
+                        </ToggleButton.Template>
+                    </ToggleButton>
+
+                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                        <TextBlock Text="Dark mode" Foreground="{DynamicResource SecondaryTextBrush}" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                        <Slider x:Name="OpacitySlider" Width="110" Minimum="0" Maximum="100" Value="94" SmallChange="1" LargeChange="5" ValueChanged="OpacitySlider_ValueChanged"/>
+                    </StackPanel>
+                </StackPanel>
+
+                                <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,20,0">
+                    <Ellipse Width="6" Height="6" Fill="{DynamicResource SuccessBrush}" Margin="0,0,6,0">
+                        <Ellipse.Style>
+                            <Style TargetType="Ellipse">
+                                <Style.Triggers>
+                                    <EventTrigger RoutedEvent="Loaded">
+                                        <BeginStoryboard>
+                                            <Storyboard>
+                                                <DoubleAnimation Storyboard.TargetProperty="Opacity" From="0.3" To="1.0" Duration="0:0:1.5" AutoReverse="True" RepeatBehavior="Forever"/>
+                                            </Storyboard>
+                                        </BeginStoryboard>
+                                    </EventTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </Ellipse.Style>
+                        <Ellipse.Effect>
+                            <DropShadowEffect Color="{DynamicResource SuccessColor}" BlurRadius="5" ShadowDepth="0"/>
+                        </Ellipse.Effect>
+                    </Ellipse>
+                    <TextBlock Text="{Binding SystemInfo.Uptime, StringFormat='Uptime: {0}'}" Foreground="{DynamicResource SuccessBrush}" FontSize="12" VerticalAlignment="Center"/>
+                </StackPanel>
+
                 
                 <Button Content="&#xE921;" Style="{StaticResource WindowControlButtonStyle}" Click="BtnMinimize_Click" WindowChrome.IsHitTestVisibleInChrome="True"/>
                 <Button Content="&#xE922;" Style="{StaticResource WindowControlButtonStyle}" Click="BtnMaximize_Click" WindowChrome.IsHitTestVisibleInChrome="True"/>
@@ -238,10 +314,10 @@
                 </Grid.RowDefinitions>
 
             <!-- 2. Quick Utilities -->
-            <Border Grid.Row="0" Style="{StaticResource CardStyle}" Margin="5,0,5,15">
+            <Border Grid.Row="0" Style="{StaticResource CardStyle}" Margin="10,0,10,24">
                 <StackPanel>
-                    <TextBlock Text="Quick Utilities" FontSize="14" FontWeight="SemiBold" Foreground="#88CCFF" Margin="0,0,0,10"/>
-                    <WrapPanel HorizontalAlignment="Center">
+                    <TextBlock Text="Quick Utilities" FontSize="14" FontWeight="SemiBold" Foreground="{DynamicResource AccentBrush}" Margin="0,0,0,10"/>
+                    <WrapPanel x:Name="UtilitiesWrapPanel" HorizontalAlignment="Center">
                     <!-- Row 1 -->
                     <Button Style="{StaticResource UtilityButtonStyle}" Click="Button_MsInfo_Click" MouseEnter="UtilityButton_MouseEnter" MouseLeave="UtilityButton_MouseLeave" Tag="View detailed system hardware and software information.">
                         <StackPanel>
@@ -316,7 +392,7 @@
                 </WrapPanel>
                 
                 <!-- Professional Info Bar -->
-                <TextBlock x:Name="TxtToolDescription" Text="Select a tool to launch." Foreground="#888" FontSize="12" Margin="5,10,0,0" FontStyle="Italic"/>
+                <TextBlock x:Name="TxtToolDescription" Text="Select a tool to launch." Foreground="{DynamicResource SecondaryTextBrush}" FontSize="12" Margin="5,10,0,0" FontStyle="Italic"/>
             </StackPanel>
         </Border>
 
@@ -353,24 +429,24 @@
                         </Grid.RowDefinitions>
 
                         <!-- Motherboard -->
-                        <TextBlock Grid.Row="0" Grid.Column="0" Text="Motherboard" Foreground="#AAAAAA" Margin="0,0,15,8" VerticalAlignment="Center"/>
+                        <TextBlock Grid.Row="0" Grid.Column="0" Text="Motherboard" Foreground="{DynamicResource SecondaryTextBrush}" Margin="0,0,15,8" VerticalAlignment="Center"/>
                         <TextBlock Grid.Row="0" Grid.Column="1" Text="{Binding SystemInfo.MotherboardModel}" Foreground="White" TextWrapping="NoWrap" TextTrimming="CharacterEllipsis" Margin="0,0,0,8" VerticalAlignment="Center" ToolTip="{Binding SystemInfo.MotherboardModel}"/>
                         <Button Grid.Row="0" Grid.Column="2" Command="{Binding CopyMotherboardCommand}" Style="{StaticResource WindowControlButtonStyle}" ToolTip="Copy Model" Margin="5,0,0,8" Width="20" Height="20">
-                            <TextBlock Text="&#xE8C8;" FontFamily="Segoe MDL2 Assets" FontSize="10" Foreground="#00ADEF"/>
+                            <TextBlock Text="&#xE8C8;" FontFamily="Segoe MDL2 Assets" FontSize="10" Foreground="{DynamicResource AccentBrush}"/>
                         </Button>
 
                         <!-- BIOS Version -->
-                        <TextBlock Grid.Row="1" Grid.Column="0" Text="BIOS Version" Foreground="#AAAAAA" Margin="0,0,15,8" VerticalAlignment="Center"/>
+                        <TextBlock Grid.Row="1" Grid.Column="0" Text="BIOS Version" Foreground="{DynamicResource SecondaryTextBrush}" Margin="0,0,15,8" VerticalAlignment="Center"/>
                         <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding SystemInfo.BiosVersion}" Foreground="White" TextWrapping="Wrap" Margin="0,0,0,8" VerticalAlignment="Center"/>
                         <Button Grid.Row="1" Grid.Column="2" Command="{Binding CopyBiosVersionCommand}" Style="{StaticResource WindowControlButtonStyle}" ToolTip="Copy Version" Margin="5,0,0,8" Width="20" Height="20">
-                            <TextBlock Text="&#xE8C8;" FontFamily="Segoe MDL2 Assets" FontSize="10" Foreground="#00ADEF"/>
+                            <TextBlock Text="&#xE8C8;" FontFamily="Segoe MDL2 Assets" FontSize="10" Foreground="{DynamicResource AccentBrush}"/>
                         </Button>
 
                         <!-- BIOS Date -->
-                        <TextBlock Grid.Row="2" Grid.Column="0" Text="BIOS Date" Foreground="#AAAAAA" Margin="0,0,15,0" VerticalAlignment="Center"/>
+                        <TextBlock Grid.Row="2" Grid.Column="0" Text="BIOS Date" Foreground="{DynamicResource SecondaryTextBrush}" Margin="0,0,15,0" VerticalAlignment="Center"/>
                         <TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding SystemInfo.BiosDate}" Foreground="White" TextWrapping="Wrap" Margin="0,0,0,0" VerticalAlignment="Center"/>
                         <Button Grid.Row="2" Grid.Column="2" Command="{Binding CopyBiosDateCommand}" Style="{StaticResource WindowControlButtonStyle}" ToolTip="Copy Date" Margin="5,0,0,0" Width="20" Height="20">
-                            <TextBlock Text="&#xE8C8;" FontFamily="Segoe MDL2 Assets" FontSize="10" Foreground="#00ADEF"/>
+                            <TextBlock Text="&#xE8C8;" FontFamily="Segoe MDL2 Assets" FontSize="10" Foreground="{DynamicResource AccentBrush}"/>
                         </Button>
                     </Grid>
                 </StackPanel>
@@ -385,7 +461,7 @@
                     </StackPanel>
                     
                     <Grid Margin="0,10">
-                         <ProgressBar Value="{Binding SystemInfo.RamUsagePercent}" Maximum="100" Height="6" Background="#333" BorderThickness="0" Foreground="#00ADEF"/>
+                         <ProgressBar Value="{Binding SystemInfo.RamUsagePercent}" Maximum="100" Height="6" Background="{DynamicResource CardBorderBrush}" BorderThickness="0" Foreground="{DynamicResource AccentBrush}"/>
                     </Grid>
                     
                     <TextBlock Text="{Binding SystemInfo.RamUsageText}" Style="{StaticResource ValueText}" HorizontalAlignment="Center"/>
@@ -400,21 +476,32 @@
 
                         <!-- Boost Button -->
                         <Button Grid.Column="0"
-                                Command="{Binding BoostSystemCommand}" 
-                                Content="{Binding BoostButtonText}"
+                                Command="{Binding BoostSystemCommand}"
                                 IsEnabled="{Binding IsBoostEnabled}"
-                                Margin="0,0,5,0"
-                                Height="35"
-                                Background="{Binding BoostButtonColor}"
+                                Margin="0,0,8,0"
+                                Height="45"
                                 Foreground="White"
                                 FontWeight="Bold"
                                 FontSize="14"
                                 BorderThickness="0"
                                 Cursor="Hand">
+                            <Button.Background>
+                                <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
+                                    <GradientStop Color="{DynamicResource AccentColor}" Offset="0.0"/>
+                                    <GradientStop Color="{DynamicResource AccentColor2}" Offset="1.0"/>
+                                </LinearGradientBrush>
+                            </Button.Background>
+                            <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
+                                <TextBlock Text="&#xE724;" Foreground="White" FontFamily="Segoe MDL2 Assets" FontSize="16" Margin="0,0,8,0" VerticalAlignment="Center"/>
+                                <TextBlock Text="{Binding BoostButtonText}" Foreground="White" VerticalAlignment="Center"/>
+                            </StackPanel>
                             <Button.Template>
                                 <ControlTemplate TargetType="Button">
-                                    <Border x:Name="border" Background="{TemplateBinding Background}" CornerRadius="4">
-                                        <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                    <Border x:Name="border" Background="{TemplateBinding Background}" CornerRadius="10">
+                                        <Border.Effect>
+                                            <DropShadowEffect Color="{DynamicResource AccentColor}" Direction="270" ShadowDepth="4" BlurRadius="10" Opacity="0.4" />
+                                        </Border.Effect>
+                                        <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" Margin="10,0"/>
                                     </Border>
                                     <ControlTemplate.Triggers>
                                         <Trigger Property="IsMouseOver" Value="True">
@@ -422,10 +509,16 @@
                                         </Trigger>
                                         <Trigger Property="IsPressed" Value="True">
                                              <Setter TargetName="border" Property="Opacity" Value="0.8"/>
+                                             <Setter TargetName="border" Property="RenderTransform">
+                                                <Setter.Value>
+                                                    <ScaleTransform ScaleX="0.98" ScaleY="0.98" CenterX="50" CenterY="20"/>
+                                                </Setter.Value>
+                                             </Setter>
                                         </Trigger>
-                                        <Trigger Property="IsEnabled" Value="False">
-                                            <Setter TargetName="border" Property="Opacity" Value="0.7"/>
-                                        </Trigger>
+                                        <DataTrigger Binding="{Binding IsBoosting}" Value="True">
+                                            <Setter TargetName="border" Property="Background" Value="{DynamicResource HoverBackgroundBrush}"/>
+                                            <Setter TargetName="border" Property="Effect" Value="{x:Null}"/>
+                                        </DataTrigger>
                                     </ControlTemplate.Triggers>
                                 </ControlTemplate>
                             </Button.Template>
@@ -433,35 +526,49 @@
 
                         <!-- Clean Disk Button -->
                         <Button Grid.Column="1"
-                                Click="Button_DiskCleanup_Click" 
-                                Margin="5,0,0,0"
-                                Height="35"
-                                Background="#444"
+                                Click="Button_DiskCleanup_Click"
+                                Margin="8,0,0,0"
+                                Height="45"
                                 Foreground="White"
-                                FontWeight="SemiBold"
-                                FontSize="12"
+                                FontWeight="Bold"
+                                FontSize="14"
                                 BorderThickness="0"
                                 Cursor="Hand">
+                            <Button.Background>
+                                <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
+                                    <GradientStop Color="{DynamicResource AccentColor}" Offset="0.0"/>
+                                    <GradientStop Color="{DynamicResource AccentColor2}" Offset="1.0"/>
+                                </LinearGradientBrush>
+                            </Button.Background>
                             <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
-                                <TextBlock Text="🧹" Margin="0,0,5,0"/>
-                                <TextBlock x:Name="TxtDiskCleanup" Text="CLEAN DISK"/>
+                                <TextBlock Text="&#xE74C;" Foreground="White" FontFamily="Segoe MDL2 Assets" FontSize="18" Margin="0,0,8,0" VerticalAlignment="Center"/>
+                                <TextBlock x:Name="TxtDiskCleanup" Foreground="White" Text="CLEAN DISK" VerticalAlignment="Center"/>
                             </StackPanel>
                             <Button.Template>
                                 <ControlTemplate TargetType="Button">
-                                    <Border x:Name="border" Background="{TemplateBinding Background}" CornerRadius="4">
-                                        <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                    <Border x:Name="border" Background="{TemplateBinding Background}" CornerRadius="10">
+                                        <Border.Effect>
+                                            <DropShadowEffect Color="{DynamicResource AccentColor}" Direction="270" ShadowDepth="4" BlurRadius="10" Opacity="0.4" />
+                                        </Border.Effect>
+                                        <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" Margin="10,0"/>
                                     </Border>
                                     <ControlTemplate.Triggers>
                                         <Trigger Property="IsMouseOver" Value="True">
-                                            <Setter TargetName="border" Property="Background" Value="#555"/>
+                                            <Setter TargetName="border" Property="Opacity" Value="0.9"/>
                                         </Trigger>
                                         <Trigger Property="IsPressed" Value="True">
-                                            <Setter TargetName="border" Property="Background" Value="#333"/>
+                                            <Setter TargetName="border" Property="Opacity" Value="0.8"/>
+                                            <Setter TargetName="border" Property="RenderTransform">
+                                                <Setter.Value>
+                                                    <ScaleTransform ScaleX="0.98" ScaleY="0.98" CenterX="50" CenterY="20"/>
+                                                </Setter.Value>
+                                            </Setter>
                                         </Trigger>
                                     </ControlTemplate.Triggers>
                                 </ControlTemplate>
                             </Button.Template>
                         </Button>
+
                     </Grid>
                 </StackPanel>
             </Border>
@@ -484,13 +591,13 @@
                             <RowDefinition Height="Auto"/>
                         </Grid.RowDefinitions>
 
-                        <TextBlock Text="" FontFamily="Segoe MDL2 Assets" Foreground="#00FF00" Margin="0,0,15,15" VerticalAlignment="Center" FontSize="16"/>
+                        <TextBlock Text="" FontFamily="Segoe MDL2 Assets" Foreground="{DynamicResource SuccessBrush}" Margin="0,0,15,15" VerticalAlignment="Center" FontSize="16"/>
                         <StackPanel Grid.Column="1" Margin="0,0,0,15">
                             <TextBlock Text="Download"/>
                             <TextBlock Text="{Binding SystemInfo.NetworkDownload}" Style="{StaticResource ValueText}"/>
                         </StackPanel>
 
-                        <TextBlock Grid.Row="1" Text="" FontFamily="Segoe MDL2 Assets" Foreground="#FF5555" Margin="0,0,15,0" VerticalAlignment="Center" FontSize="16"/>
+                        <TextBlock Grid.Row="1" Text="" FontFamily="Segoe MDL2 Assets" Foreground="{DynamicResource ErrorBrush}" Margin="0,0,15,0" VerticalAlignment="Center" FontSize="16"/>
                         <StackPanel Grid.Row="1" Grid.Column="1">
                             <TextBlock Text="Upload"/>
                             <TextBlock Text="{Binding SystemInfo.NetworkUpload}" Style="{StaticResource ValueText}"/>
@@ -517,11 +624,11 @@
                                 <StackPanel>
                                     <TextBlock Text="Processor (CPU)" Style="{StaticResource TitleText}"/>
                                     <StackPanel Orientation="Horizontal">
-                                        <TextBlock Text="{Binding CpuName}" FontSize="12" Foreground="#88CCFF" VerticalAlignment="Center"/>
+                                        <TextBlock Text="{Binding CpuName}" FontSize="12" Foreground="{DynamicResource AccentBrush}" VerticalAlignment="Center"/>
                                         <Button Style="{StaticResource WindowControlButtonStyle}" Click="CopyCpuInfo_Click" ToolTip="Copy CPU Name" Margin="5,0,0,0" Width="20" Height="20">
-                                            <TextBlock Text="&#xE8C8;" FontFamily="Segoe MDL2 Assets" FontSize="10" Foreground="#00ADEF"/>
+                                            <TextBlock Text="&#xE8C8;" FontFamily="Segoe MDL2 Assets" FontSize="10" Foreground="{DynamicResource AccentBrush}"/>
                                         </Button>
-                                        <TextBlock x:Name="TxtCpuCopyFeedback" Text="Copied!" Foreground="#00FF00" FontSize="10" VerticalAlignment="Center" Margin="5,0,0,0" Visibility="Collapsed"/>
+                                        <TextBlock x:Name="TxtCpuCopyFeedback" Text="Copied!" Foreground="{DynamicResource SuccessBrush}" FontSize="10" VerticalAlignment="Center" Margin="5,0,0,0" Visibility="Collapsed"/>
                                     </StackPanel>
                                 </StackPanel>
                             </StackPanel>
@@ -560,11 +667,11 @@
                                 <StackPanel>
                                     <TextBlock Text="Graphics (GPU)" Style="{StaticResource TitleText}"/>
                                     <StackPanel Orientation="Horizontal">
-                                        <TextBlock Text="{Binding GpuName}" FontSize="12" Foreground="#88FFCC" VerticalAlignment="Center"/>
+                                        <TextBlock Text="{Binding GpuName}" FontSize="12" Foreground="{DynamicResource AccentBrush}" VerticalAlignment="Center"/>
                                         <Button Style="{StaticResource WindowControlButtonStyle}" Click="CopyGpuInfo_Click" ToolTip="Copy GPU Name" Margin="5,0,0,0" Width="20" Height="20">
-                                            <TextBlock Text="&#xE8C8;" FontFamily="Segoe MDL2 Assets" FontSize="10" Foreground="#00ADEF"/>
+                                            <TextBlock Text="&#xE8C8;" FontFamily="Segoe MDL2 Assets" FontSize="10" Foreground="{DynamicResource AccentBrush}"/>
                                         </Button>
-                                        <TextBlock x:Name="TxtGpuCopyFeedback" Text="Copied!" Foreground="#00FF00" FontSize="10" VerticalAlignment="Center" Margin="5,0,0,0" Visibility="Collapsed"/>
+                                        <TextBlock x:Name="TxtGpuCopyFeedback" Text="Copied!" Foreground="{DynamicResource SuccessBrush}" FontSize="10" VerticalAlignment="Center" Margin="5,0,0,0" Visibility="Collapsed"/>
                                     </StackPanel>
                                 </StackPanel>
                             </StackPanel>
@@ -597,7 +704,7 @@
             </StackPanel>
 
             <!-- Right Column: Storage -->
-            <StackPanel Grid.Column="1" Margin="5,0,0,0">
+            <StackPanel Grid.Column="1" Margin="12,0,0,0">
                 <Border Style="{StaticResource CardStyle}">
                     <StackPanel>
                         <StackPanel Orientation="Horizontal" Margin="0,0,0,15">
@@ -608,7 +715,7 @@
                         <ItemsControl ItemsSource="{Binding StorageList}">
                             <ItemsControl.ItemTemplate>
                                 <DataTemplate>
-                                    <Border BorderBrush="#444" BorderThickness="0,0,0,1" Margin="0,0,0,15" Padding="0,0,0,15">
+                                    <Border BorderBrush="{DynamicResource CardBorderBrush}" BorderThickness="0,0,0,1" Margin="0,0,0,15" Padding="0,0,0,15">
                                         <StackPanel>
                                             <Grid Margin="0,0,0,10">
                                                 <Grid.ColumnDefinitions>
@@ -617,19 +724,19 @@
                                                     <ColumnDefinition Width="Auto"/>
                                                 </Grid.ColumnDefinitions>
                                                 <StackPanel Orientation="Horizontal" Grid.Column="0">
-                                                    <TextBlock Text="{Binding Name}" FontWeight="Bold" Margin="0,0,10,0" Foreground="Yellow" FontSize="16"/>
-                                                    <TextBlock Text="{Binding Label}" Foreground="#AAA" VerticalAlignment="Center"/>
+                                                    <TextBlock Text="{Binding Name}" FontWeight="Bold" Margin="0,0,10,0" Foreground="{DynamicResource AccentBrush}" FontSize="16"/>
+                                                    <TextBlock Text="{Binding Label}" Foreground="{DynamicResource SecondaryTextBrush}" VerticalAlignment="Center"/>
                                                 </StackPanel>
                                                 <TextBlock Text="{Binding TotalSize}" Grid.Column="2" Style="{StaticResource ValueText}" FontSize="18"/>
                                             </Grid>
 
                                             <!-- Progress Bar -->
                                             <Grid Height="24">
-                                                <ProgressBar Value="{Binding UsagePercentage}" Maximum="100" Background="#333" BorderThickness="0" Foreground="{Binding UsedColor}"/>
-                                                <TextBlock Text="{Binding UsageText}" HorizontalAlignment="Center" VerticalAlignment="Center" Foreground="White" FontSize="12" FontWeight="Bold"  /> 
+                                                <ProgressBar Value="{Binding UsagePercentage}" Maximum="100" BorderThickness="0"><ProgressBar.Template><ControlTemplate TargetType="ProgressBar"><Grid x:Name="PART_Track"><Border Background="{DynamicResource CardBorderBrush}" CornerRadius="12" /><Border x:Name="PART_Indicator" Background="{Binding UsedColor}" CornerRadius="12" HorizontalAlignment="Left" /></Grid></ControlTemplate></ProgressBar.Template></ProgressBar>
+                                                <TextBlock Text="{Binding UsageText}" HorizontalAlignment="Center" VerticalAlignment="Center" Foreground="{DynamicResource PrimaryTextBrush}" FontSize="12" FontWeight="Bold"  /> 
                                             </Grid>
                                             
-                                            <TextBlock Text="{Binding FreeSpace}" FontSize="12" Foreground="#888" HorizontalAlignment="Right" Margin="0,6,0,0"/>
+                                            <TextBlock Text="{Binding FreeSpace}" FontSize="12" Foreground="{DynamicResource SecondaryTextBrush}" HorizontalAlignment="Right" Margin="0,6,0,0"/>
                                         </StackPanel>
                                     </Border>
                                 </DataTemplate>
@@ -641,7 +748,7 @@
         </Grid>
 
         <!-- Status Bar -->
-        <StatusBar Grid.Row="3" Background="Transparent" Foreground="#888" Margin="0,10,0,0">
+        <StatusBar Grid.Row="3" Background="Transparent" Foreground="{DynamicResource SecondaryTextBrush}" Margin="0,10,0,0">
             <StatusBarItem>
                 <TextBlock Text="{Binding StatusMessage}"/>
             </StatusBarItem>
@@ -650,3 +757,9 @@
     </ScrollViewer>
 </Grid>
 </Window>
+
+
+
+
+
+

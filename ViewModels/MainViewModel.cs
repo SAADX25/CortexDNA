@@ -25,7 +25,6 @@ namespace CortexDNA.ViewModels
         private readonly Computer _computer;
         private DispatcherTimer _timer;
         private PerformanceCounter? _cpuPerfCounter;
-        private PerformanceCounter? _ramAvailableCounter;
         private double _baseClockGHz = 3.2; // Default for i7-8700
         private long _prevBytesReceived = 0;
         private long _prevBytesSent = 0;
@@ -48,12 +47,12 @@ namespace CortexDNA.ViewModels
             {
                 if (SetProperty(ref _isBoosting, value))
                 {
-                    BoostButtonText = value ? "Boosting..." : "🚀 BOOST";
+                    BoostButtonText = value ? "Cleaning..." : "BOOST";
                 }
             }
         }
 
-        private string _boostButtonText = "🚀 BOOST";
+        private string _boostButtonText = "BOOST";
         public string BoostButtonText
         {
             get => _boostButtonText;
@@ -314,10 +313,6 @@ namespace CortexDNA.ViewModels
                 
                 _cpuPerfCounter = new PerformanceCounter("Processor Information", "% Processor Performance", "_Total");
                 _cpuPerfCounter.NextValue(); // First call always returns 0
-
-                // RAM Available
-                _ramAvailableCounter = new PerformanceCounter("Memory", "Available MBytes");
-                _ramAvailableCounter.NextValue();
 
                 // Network baseline
             }
@@ -618,8 +613,15 @@ namespace CortexDNA.ViewModels
                     float cpuPerf = 0;
                     if (_cpuPerfCounter != null) cpuPerf = _cpuPerfCounter.NextValue();
 
+                    NativeMethods.MEMORYSTATUSEX memStatus = new NativeMethods.MEMORYSTATUSEX();
+                    memStatus.dwLength = (uint)Marshal.SizeOf(typeof(NativeMethods.MEMORYSTATUSEX));
                     float ramAvailable = 0;
-                    if (_ramAvailableCounter != null) ramAvailable = _ramAvailableCounter.NextValue();
+                    if (NativeMethods.GlobalMemoryStatusEx(ref memStatus))
+                    {
+                        ramAvailable = memStatus.ullAvailPhys / (1024f * 1024f); 
+                        // Only set total RAM bytes if it wasn't statically loaded correctly
+                        if (_totalRamBytes == 0) _totalRamBytes = memStatus.ullTotalPhys;
+                    }
 
                     // Network & Storage Snapshots (Lightweight)
                     var netStats = GetNetworkStatsSnapshot();
@@ -945,10 +947,6 @@ namespace CortexDNA.ViewModels
             public string UsedColor { get; set; }
         }
 
-
-        [DllImport("psapi.dll")]
-        public static extern int EmptyWorkingSet(IntPtr hwProc);
-
         private async void BoostSystem()
         {
             if (IsBoosting) return;
@@ -956,59 +954,39 @@ namespace CortexDNA.ViewModels
             IsBoostEnabled = false;
 
             // 1. The 'During' State (Loading)
-            BoostButtonText = "🚀 Cleaning...";
+            BoostButtonText = "Cleaning...";
             BoostButtonColor = "#444444"; // Dark gray to indicate activity
 
             try
             {
                 // Initial memory check
                 float ramAvailableBefore = 0;
-                if (_ramAvailableCounter != null) ramAvailableBefore = _ramAvailableCounter.NextValue();
+                NativeMethods.MEMORYSTATUSEX memStatusBefore = new NativeMethods.MEMORYSTATUSEX();
+                memStatusBefore.dwLength = (uint)Marshal.SizeOf(typeof(NativeMethods.MEMORYSTATUSEX));
+                if (NativeMethods.GlobalMemoryStatusEx(ref memStatusBefore))
+                {
+                    ramAvailableBefore = memStatusBefore.ullAvailPhys / (1024f * 1024f);
+                }
 
                 // 2. The 'Action' (Background Task)
-                await Task.Run(async () =>
-                {
-                    try
-                    {
-                        // UX Tip: Add a small artificial delay
-                        await Task.Delay(1000);
-
-                        var processes = Process.GetProcesses();
-                        foreach (var p in processes)
-                        {
-                            try
-                            {
-                                if (!p.HasExited)
-                                {
-                                    EmptyWorkingSet(p.Handle);
-                                }
-                            }
-                            catch
-                            {
-                                // Skip if access denied or process exited
-                            }
-                            finally
-                            {
-                                p.Dispose();
-                            }
-                        }
-                    }
-                    catch (Exception ex)
-                    {
-                        System.Diagnostics.Debug.WriteLine($"Boost Error: {ex.Message}");
-                    }
-                });
+                await Task.Delay(1000); // UX Tip: Add a small artificial delay
+                await RamOptimizer.OptimizeMemoryAsync();
 
                 // Final memory check
                 float ramAvailableAfter = 0;
-                if (_ramAvailableCounter != null) ramAvailableAfter = _ramAvailableCounter.NextValue();
+                NativeMethods.MEMORYSTATUSEX memStatusAfter = new NativeMethods.MEMORYSTATUSEX();
+                memStatusAfter.dwLength = (uint)Marshal.SizeOf(typeof(NativeMethods.MEMORYSTATUSEX));
+                if (NativeMethods.GlobalMemoryStatusEx(ref memStatusAfter))
+                {
+                    ramAvailableAfter = memStatusAfter.ullAvailPhys / (1024f * 1024f);
+                }
 
                 // Calculate difference
                 float freedMb = ramAvailableAfter - ramAvailableBefore;
                 if (freedMb < 0) freedMb = 0;
 
                 // 3. The 'After' State (Success Result)
-                BoostButtonText = $"✅ Freed {freedMb:F0} MB!";
+                BoostButtonText = $"Freed {freedMb:F0} MB!";
                 BoostButtonColor = "#28a745"; // Success Green
                 StatusMessage = $"Success! Freed {freedMb:F0} MB of RAM.";
                 
@@ -1021,14 +999,14 @@ namespace CortexDNA.ViewModels
             catch (Exception ex)
             {
                 StatusMessage = $"Boost failed: {ex.Message}";
-                BoostButtonText = "❌ Error";
+                BoostButtonText = "Error";
                 BoostButtonColor = "#dc3545"; // Error Red
                 await Task.Delay(2000);
             }
             finally
             {
                 // Reset to original state
-                BoostButtonText = "🚀 BOOST";
+                BoostButtonText = "BOOST";
                 BoostButtonColor = "#00ADEF";
                 IsBoosting = false;
                 IsBoostEnabled = true;
@@ -1039,7 +1017,6 @@ namespace CortexDNA.ViewModels
         {
             _computer.Close();
             if (_cpuPerfCounter != null) _cpuPerfCounter.Dispose();
-            if (_ramAvailableCounter != null) _ramAvailableCounter.Dispose();
         }
 
         private class SystemSpecs

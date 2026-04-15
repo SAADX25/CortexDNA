@@ -1,5 +1,5 @@
 #define MyAppName "Cortex DNA"
-#define MyAppVersion "1.2.2"
+#define MyAppVersion "1.3.5"
 #define MyAppPublisher "Cortex"
 #define MyAppExeName "CortexDNA.exe"
 
@@ -18,7 +18,7 @@ PrivilegesRequired=admin
 ; Force 64-bit Installation Mode (Installs to C:\Program Files, not x86)
 ArchitecturesInstallIn64BitMode=x64
 OutputDir=E:\Code-Setup\Cortex Core\app\CortexDNA\bin\Release\Installer
-OutputBaseFilename=CortexDNA_Installer_v1.2.2
+OutputBaseFilename=CortexDNA_Installer_v1.3.5_all
 Compression=lzma
 SolidCompression=yes
 WizardStyle=modern
@@ -32,13 +32,12 @@ Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{
 [Files]
 ; Source is the Framework-Dependent Publish Folder
 ; We specifically include the .dll and runtimeconfig.json for framework-dependent apps
-Source: "E:\Code-Setup\Cortex Core\app\CortexDNA\bin\Release\net8.0-windows\win-x64\publish\{#MyAppExeName}"; DestDir: "{app}"; Flags: ignoreversion
-Source: "E:\Code-Setup\Cortex Core\app\CortexDNA\bin\Release\net8.0-windows\win-x64\publish\CortexDNA.dll"; DestDir: "{app}"; Flags: ignoreversion
-Source: "E:\Code-Setup\Cortex Core\app\CortexDNA\bin\Release\net8.0-windows\win-x64\publish\CortexDNA.runtimeconfig.json"; DestDir: "{app}"; Flags: ignoreversion
+Source: "E:\Code-Setup\CortexDNA\bin\Release\net10.0-windows\win-x64\publish\{#MyAppExeName}"; DestDir: "{app}"; Flags: ignoreversion
+Source: "E:\Code-Setup\CortexDNA\bin\Release\net10.0-windows\win-x64\publish\CortexDNA.dll"; DestDir: "{app}"; Flags: ignoreversion
+Source: "E:\Code-Setup\CortexDNA\bin\Release\net10.0-windows\win-x64\publish\CortexDNA.runtimeconfig.json"; DestDir: "{app}"; Flags: ignoreversion
 
 ; Include all other files (dependencies, assets)
-Source: "E:\Code-Setup\Cortex Core\app\CortexDNA\bin\Release\net8.0-windows\win-x64\publish\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
-
+Source: "E:\Code-Setup\CortexDNA\bin\Release\net10.0-windows\win-x64\publish\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
 [Icons]
 Name: "{group}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"
 Name: "{commondesktop}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; Tasks: desktopicon
