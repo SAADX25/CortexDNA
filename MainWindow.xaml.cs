@@ -22,32 +22,27 @@ namespace CortexDNA
         private NotifyIcon _notifyIcon;
         private bool _isExplicitExit = false;
 
+        private string _currentThemeFileName = "DarkTheme.xaml";
+
         public MainWindow()
         {
             InitializeComponent();
             InitializeTrayIcon();
             this.Loaded += MainWindow_Loaded;
-            // Apply saved theme (or default) and initial opacity
+            // Apply saved theme (or default) and fixed opacity
             this.Loaded += (s, e) =>
             {
                 try
                 {
                     var settings = LoadThemeSettings();
-                    string themeFile = settings?.ThemeFileName ?? "DarkTheme.xaml";
-                    ApplyTheme(themeFile);
-
-                    double opacity = settings?.OpacityPercent ?? 94.0;
+                    _currentThemeFileName = settings?.ThemeFileName ?? "DarkTheme.xaml";
+                    
                     if (OpacitySlider != null)
                     {
-                        OpacitySlider.Value = opacity;
-                        OpacitySlider_ValueChanged(OpacitySlider, null);
+                        OpacitySlider.Value = settings?.OpacityPercent ?? 100.0;
                     }
-
-                    if (ThemeToggle != null)
-                    {
-                        // If loaded theme is the light theme, set checked
-                        ThemeToggle.IsChecked = string.Equals(themeFile, "LightTheme.xaml", StringComparison.OrdinalIgnoreCase);
-                    }
+                    
+                    ApplyTheme(_currentThemeFileName);
                 }
                 catch { }
             };
@@ -272,17 +267,17 @@ namespace CortexDNA
             aboutWindow.ShowDialog(); // Opens as a modal
         }
 
-        private void ThemeToggle_Checked(object sender, RoutedEventArgs e)
+        private void ThemeButton_Click(object sender, RoutedEventArgs e)
         {
-            // Checked -> Light Mode
-            ApplyTheme("LightTheme.xaml");
-            SaveThemeSettings();
-        }
-
-        private void ThemeToggle_Unchecked(object sender, RoutedEventArgs e)
-        {
-            // Unchecked -> Dark Mode
-            ApplyTheme("DarkTheme.xaml");
+            if (_currentThemeFileName == "DarkTheme.xaml")
+            {
+                _currentThemeFileName = "LightTheme.xaml";
+            }
+            else
+            {
+                _currentThemeFileName = "DarkTheme.xaml";
+            }
+            ApplyTheme(_currentThemeFileName);
             SaveThemeSettings();
         }
 
@@ -290,7 +285,7 @@ namespace CortexDNA
         {
             try
             {
-                double value = OpacitySlider?.Value ?? 94.0;
+                double value = OpacitySlider?.Value ?? 100.0;
                 if (this.Resources["AppBackgroundBrush"] is SolidColorBrush sb)
                 {
                     sb.Opacity = Math.Max(0.0, Math.Min(1.0, value / 100.0));
@@ -363,8 +358,7 @@ namespace CortexDNA
                 if (this.Resources["AppBackgroundBrush"] is SolidColorBrush appBrushRes)
                 {
                     this.Background = appBrushRes;
-                    // Apply current opacity
-                    double value = OpacitySlider?.Value ?? 94.0;
+                    double value = OpacitySlider?.Value ?? 100.0;
                     appBrushRes.Opacity = Math.Max(0.0, Math.Min(1.0, value / 100.0));
                 }
             }
@@ -396,8 +390,8 @@ namespace CortexDNA
             {
                 var settings = new ThemeSettings
                 {
-                    ThemeFileName = (ThemeToggle?.IsChecked == true) ? "LightTheme.xaml" : "DarkTheme.xaml",
-                    OpacityPercent = OpacitySlider?.Value ?? 94.0
+                    ThemeFileName = _currentThemeFileName,
+                    OpacityPercent = OpacitySlider?.Value ?? 100.0
                 };
 
                 string dir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "CortexDNA");
@@ -784,20 +778,7 @@ namespace CortexDNA
         }
 
         // --- Interaction Logic for Utility Buttons ---
-        private void UtilityButton_MouseEnter(object sender, System.Windows.Input.MouseEventArgs e)
-        {
-            if (sender is System.Windows.Controls.Button btn && btn.Tag is string description)
-            {
-                TxtToolDescription.Text = description;
-                TxtToolDescription.Foreground = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(0, 173, 239)); // Cyan
-            }
-        }
-
-        private void UtilityButton_MouseLeave(object sender, System.Windows.Input.MouseEventArgs e)
-        {
-            TxtToolDescription.Text = "Select a tool to launch.";
-            TxtToolDescription.Foreground = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(136, 136, 136)); // #888
-        }
+        // (Event handlers removed as they are no longer used by Sidebar)
 
         private async void CopyBiosInfo_Click(object sender, RoutedEventArgs e)
         {

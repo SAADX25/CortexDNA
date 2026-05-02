@@ -86,6 +86,45 @@ namespace CortexDNA.ViewModels
             }
         }
         
+        private bool _privacyDiagnosticDataEnabled;
+        public bool PrivacyDiagnosticDataEnabled
+        {
+            get => _privacyDiagnosticDataEnabled;
+            set
+            {
+                if (SetProperty(ref _privacyDiagnosticDataEnabled, value))
+                {
+                    UpdatePrivacyRegistry("AllowTelemetry", value ? 3 : 0, Registry.LocalMachine, @"SOFTWARE\Policies\Microsoft\Windows\DataCollection");
+                }
+            }
+        }
+
+        private bool _privacySettingsSuggestionsEnabled;
+        public bool PrivacySettingsSuggestionsEnabled
+        {
+            get => _privacySettingsSuggestionsEnabled;
+            set
+            {
+                if (SetProperty(ref _privacySettingsSuggestionsEnabled, value))
+                {
+                    UpdatePrivacyRegistry("SubscribedContent-338393Enabled", value ? 1 : 0, Registry.CurrentUser, @"Software\Microsoft\Windows\CurrentVersion\ContentDeliveryManager");
+                }
+            }
+        }
+
+        private bool _privacyWebSearchEnabled;
+        public bool PrivacyWebSearchEnabled
+        {
+            get => _privacyWebSearchEnabled;
+            set
+            {
+                if (SetProperty(ref _privacyWebSearchEnabled, value))
+                {
+                    UpdatePrivacyRegistry("DisableSearchBoxSuggestions", value ? 0 : 1, Registry.CurrentUser, @"Software\Policies\Microsoft\Windows\Explorer");
+                }
+            }
+        }
+
         private string _cpuName = "Detecting CPU...";
         public string CpuName
         {
@@ -143,6 +182,9 @@ namespace CortexDNA.ViewModels
 
             // Load Startup State
             _runOnStartup = CheckStartupRegistry();
+
+            // Load Privacy State
+            CheckPrivacySettings();
 
             CopyAllSpecsCommand = new RelayCommand(CopyAllSpecs);
             CopyMotherboardCommand = new RelayCommand(() => CopyToClipboard(SystemInfo.MotherboardModel, "Motherboard Model"));
@@ -266,6 +308,82 @@ namespace CortexDNA.ViewModels
             {
                 Logger.Log($"Startup Registry Error: {ex.Message}");
                 // Ideally show a message to user if UAC blocks it, but this runs silently in VM.
+            }
+        }
+
+        private void CheckPrivacySettings()
+        {
+            try
+            {
+                using (RegistryKey key = Registry.LocalMachine.OpenSubKey(@"SOFTWARE\Policies\Microsoft\Windows\DataCollection"))
+                {
+                    if (key != null)
+                    {
+                        var val = key.GetValue("AllowTelemetry");
+                        _privacyDiagnosticDataEnabled = val != null && Convert.ToInt32(val) != 0;
+                    }
+                    else _privacyDiagnosticDataEnabled = true; // Default
+                }
+                OnPropertyChanged(nameof(PrivacyDiagnosticDataEnabled));
+            }
+            catch { }
+
+            try
+            {
+                using (RegistryKey key = Registry.CurrentUser.OpenSubKey(@"Software\Microsoft\Windows\CurrentVersion\ContentDeliveryManager"))
+                {
+                    if (key != null)
+                    {
+                        var val = key.GetValue("SubscribedContent-338393Enabled");
+                        _privacySettingsSuggestionsEnabled = val == null || Convert.ToInt32(val) != 0; // Default enabled
+                    }
+                    else _privacySettingsSuggestionsEnabled = true;
+                }
+                OnPropertyChanged(nameof(PrivacySettingsSuggestionsEnabled));
+            }
+            catch { }
+
+            try
+            {
+                using (RegistryKey key = Registry.CurrentUser.OpenSubKey(@"Software\Policies\Microsoft\Windows\Explorer"))
+                {
+                    if (key != null)
+                    {
+                        var val = key.GetValue("DisableSearchBoxSuggestions");
+                        _privacyWebSearchEnabled = val == null || Convert.ToInt32(val) == 0; // 0 = enabled, 1 = disabled
+                    }
+                    else _privacyWebSearchEnabled = true;
+                }
+                OnPropertyChanged(nameof(PrivacyWebSearchEnabled));
+            }
+            catch { }
+        }
+
+        private void UpdatePrivacyRegistry(string valueName, int value, RegistryKey rootKey, string subKeyPath)
+        {
+            try
+            {
+                using (RegistryKey key = rootKey.CreateSubKey(subKeyPath, true))
+                {
+                    if (key != null)
+                    {
+                        key.SetValue(valueName, value, RegistryValueKind.DWord);
+                    }
+                }
+            }
+            catch (UnauthorizedAccessException)
+            {
+                System.Windows.Application.Current.Dispatcher.Invoke(() =>
+                {
+                    System.Windows.MessageBox.Show("Administrator privileges are required to change this setting. Please restart the application as Administrator.", "Access Denied", System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Warning);
+                    
+                    // Re-read settings to revert toggle
+                    CheckPrivacySettings();
+                });
+            }
+            catch (Exception ex)
+            {
+                Logger.Log($"Privacy Registry Error ({valueName}): {ex.Message}");
             }
         }
 
