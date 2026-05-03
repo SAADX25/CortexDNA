@@ -1,0 +1,76 @@
+<UserControl x:Class="CortexDNA.Controls.PrivacySettingsControl"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" 
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008" 
+             xmlns:vm="clr-namespace:CortexDNA.ViewModels"
+             mc:Ignorable="d" 
+             d:DesignHeight="300" d:DesignWidth="800">
+    <Border Style="{DynamicResource CardStyle}">
+        <StackPanel>
+            <StackPanel Orientation="Horizontal" Margin="0,0,0,15">
+                <TextBlock Text="&#xE1F6;" FontFamily="Segoe MDL2 Assets" FontSize="20" Foreground="{DynamicResource AccentBrush}" VerticalAlignment="Center" Margin="0,0,15,0"/>
+                <TextBlock Text="Windows Privacy Settings" Style="{DynamicResource TitleText}" VerticalAlignment="Center"/>
+            </StackPanel>
+            
+            <Grid Margin="0,5">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
+                </Grid.RowDefinitions>
+
+                <!-- Toggle 1 -->
+                <Grid Grid.Row="0" Margin="0,10">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+                    <StackPanel>
+                        <TextBlock Text="Diagnostic Data" Foreground="{DynamicResource PrimaryTextBrush}" FontSize="14" FontWeight="SemiBold"/>
+                        <TextBlock Text="Allow Microsoft to use Windows diagnostic data" Foreground="{DynamicResource SecondaryTextBrush}" FontSize="12" Margin="0,4,0,0" TextWrapping="Wrap"/>
+                    </StackPanel>
+                    <Button Grid.Column="1" Command="{Binding OpenPrivacyRegistryCommand}" CommandParameter="Diagnostic" Style="{DynamicResource WindowControlButtonStyle}" ToolTip="Verify in Registry Editor" Margin="0,0,15,0" Width="28" Height="28">
+                        <TextBlock Text="&#xE8A5;" FontFamily="Segoe MDL2 Assets" FontSize="12" Foreground="{DynamicResource AccentBrush}"/>
+                    </Button>
+                    <ToggleButton Grid.Column="2" Style="{DynamicResource ModernToggleSwitch}" VerticalAlignment="Center" Margin="0,0,0,0" IsChecked="{Binding PrivacyDiagnosticDataEnabled}"/>
+                </Grid>
+
+                <!-- Toggle 2 -->
+                <Grid Grid.Row="1" Margin="0,10">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+                    <StackPanel>
+                        <TextBlock Text="Settings Suggestions" Foreground="{DynamicResource PrimaryTextBrush}" FontSize="14" FontWeight="SemiBold"/>
+                        <TextBlock Text="Allow Windows to show you suggestions in the Settings app" Foreground="{DynamicResource SecondaryTextBrush}" FontSize="12" Margin="0,4,0,0" TextWrapping="Wrap"/>
+                    </StackPanel>
+                    <Button Grid.Column="1" Command="{Binding OpenPrivacyRegistryCommand}" CommandParameter="Settings" Style="{DynamicResource WindowControlButtonStyle}" ToolTip="Verify in Registry Editor" Margin="0,0,15,0" Width="28" Height="28">
+                        <TextBlock Text="&#xE8A5;" FontFamily="Segoe MDL2 Assets" FontSize="12" Foreground="{DynamicResource AccentBrush}"/>
+                    </Button>
+                    <ToggleButton Grid.Column="2" Style="{DynamicResource ModernToggleSwitch}" VerticalAlignment="Center" Margin="0,0,0,0" IsChecked="{Binding PrivacySettingsSuggestionsEnabled}"/>
+                </Grid>
+
+                <!-- Toggle 3 -->
+                <Grid Grid.Row="2" Margin="0,10">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+                    <StackPanel>
+                        <TextBlock Text="Start Menu Web Search" Foreground="{DynamicResource PrimaryTextBrush}" FontSize="14" FontWeight="SemiBold"/>
+                        <TextBlock Text="Allow web search apps to show results in Start Menu or Taskbar Search" Foreground="{DynamicResource SecondaryTextBrush}" FontSize="12" Margin="0,4,0,0" TextWrapping="Wrap"/>
+                    </StackPanel>
+                    <Button Grid.Column="1" Command="{Binding OpenPrivacyRegistryCommand}" CommandParameter="Search" Style="{DynamicResource WindowControlButtonStyle}" ToolTip="Verify in Registry Editor" Margin="0,0,15,0" Width="28" Height="28">
+                        <TextBlock Text="&#xE8A5;" FontFamily="Segoe MDL2 Assets" FontSize="12" Foreground="{DynamicResource AccentBrush}"/>
+                    </Button>
+                    <ToggleButton Grid.Column="2" Style="{DynamicResource ModernToggleSwitch}" VerticalAlignment="Center" Margin="0,0,0,0" IsChecked="{Binding PrivacyWebSearchEnabled}"/>
+                </Grid>
+            </Grid>
+        </StackPanel>
+    </Border>
+</UserControl>

@@ -36,7 +36,7 @@ namespace CortexDNA.ViewModels
         public ICommand CopyBiosVersionCommand { get; }
         public ICommand CopyBiosDateCommand { get; }
         public ICommand BoostSystemCommand { get; }
-        public ICommand OpenPrivacyRegistryCommand { get; }
+        public PrivacyViewModel PrivacyVM { get; } = new PrivacyViewModel();
 
         public AppSystemInfo SystemInfo { get; set; } = new AppSystemInfo();
 
@@ -86,141 +86,7 @@ namespace CortexDNA.ViewModels
                 }
             }
         }
-        
-        public bool PrivacyDiagnosticDataEnabled
-        {
-            get
-            {
-                try
-                {
-                    using (RegistryKey key = Registry.LocalMachine.OpenSubKey(@"SOFTWARE\Policies\Microsoft\Windows\DataCollection"))
-                    {
-                        if (key != null)
-                        {
-                            var val = key.GetValue("AllowTelemetry");
-                            if (val != null)
-                                return Convert.ToInt32(val) > 0;
-                        }
-                        return true; // Default Windows state
-                    }
-                }
-                catch
-                {
-                    return true;
-                }
-            }
-            set
-            {
-                try
-                {
-                    using (RegistryKey key = Registry.LocalMachine.CreateSubKey(@"SOFTWARE\Policies\Microsoft\Windows\DataCollection", true))
-                    {
-                        if (key != null)
-                        {
-                            key.SetValue("AllowTelemetry", value ? 3 : 0, RegistryValueKind.DWord);
-                        }
-                    }
-                }
-                catch (Exception ex)
-                {
-                    Logger.Log($"Error setting PrivacyDiagnosticDataEnabled: {ex.Message}");
-                }
-                finally
-                {
-                    OnPropertyChanged(nameof(PrivacyDiagnosticDataEnabled));
-                }
-            }
-        }
 
-        public bool PrivacySettingsSuggestionsEnabled
-        {
-            get
-            {
-                try
-                {
-                    using (RegistryKey key = Registry.CurrentUser.OpenSubKey(@"Software\Microsoft\Windows\CurrentVersion\ContentDeliveryManager"))
-                    {
-                        if (key != null)
-                        {
-                            var val = key.GetValue("SystemPaneSuggestionsEnabled");
-                            if (val != null)
-                                return Convert.ToInt32(val) != 0;
-                        }
-                        return true; // Default Windows state
-                    }
-                }
-                catch
-                {
-                    return true;
-                }
-            }
-            set
-            {
-                try
-                {
-                    using (RegistryKey key = Registry.CurrentUser.CreateSubKey(@"Software\Microsoft\Windows\CurrentVersion\ContentDeliveryManager", true))
-                    {
-                        if (key != null)
-                        {
-                            key.SetValue("SystemPaneSuggestionsEnabled", value ? 1 : 0, RegistryValueKind.DWord);
-                        }
-                    }
-                }
-                catch (Exception ex)
-                {
-                    Logger.Log($"Error setting PrivacySettingsSuggestionsEnabled: {ex.Message}");
-                }
-                finally
-                {
-                    OnPropertyChanged(nameof(PrivacySettingsSuggestionsEnabled));
-                }
-            }
-        }
-
-        public bool PrivacyWebSearchEnabled
-        {
-            get
-            {
-                try
-                {
-                    using (RegistryKey key = Registry.CurrentUser.OpenSubKey(@"Software\Policies\Microsoft\Windows\Explorer"))
-                    {
-                        if (key != null)
-                        {
-                            var val = key.GetValue("DisableSearchBoxSuggestions");
-                            if (val != null)
-                                return Convert.ToInt32(val) == 0;
-                        }
-                        return true; // Default Windows state
-                    }
-                }
-                catch
-                {
-                    return true;
-                }
-            }
-            set
-            {
-                try
-                {
-                    using (RegistryKey key = Registry.CurrentUser.CreateSubKey(@"Software\Policies\Microsoft\Windows\Explorer", true))
-                    {
-                        if (key != null)
-                        {
-                            key.SetValue("DisableSearchBoxSuggestions", value ? 0 : 1, RegistryValueKind.DWord);
-                        }
-                    }
-                }
-                catch (Exception ex)
-                {
-                    Logger.Log($"Error setting PrivacyWebSearchEnabled: {ex.Message}");
-                }
-                finally
-                {
-                    OnPropertyChanged(nameof(PrivacyWebSearchEnabled));
-                }
-            }
-        }
 
         private string _cpuName = "Detecting CPU...";
         public string CpuName
@@ -280,17 +146,14 @@ namespace CortexDNA.ViewModels
             // Load Startup State
             _runOnStartup = CheckStartupRegistry();
 
-            // Notify UI of live privacy settings state
-            OnPropertyChanged(nameof(PrivacyDiagnosticDataEnabled));
-            OnPropertyChanged(nameof(PrivacySettingsSuggestionsEnabled));
-            OnPropertyChanged(nameof(PrivacyWebSearchEnabled));
+
 
             CopyAllSpecsCommand = new RelayCommand(CopyAllSpecs);
             CopyMotherboardCommand = new RelayCommand(() => CopyToClipboard(SystemInfo.MotherboardModel, "Motherboard Model"));
             CopyBiosVersionCommand = new RelayCommand(() => CopyToClipboard(SystemInfo.BiosVersion, "BIOS Version"));
             CopyBiosDateCommand = new RelayCommand(() => CopyToClipboard(SystemInfo.BiosDate, "BIOS Date"));
             BoostSystemCommand = new RelayCommand(BoostSystem);
-            OpenPrivacyRegistryCommand = new RelayCommand<string>(OpenPrivacyRegistry);
+
 
             // 1. Immediate Cache Load (Fast) - Step 1
             LoadCachedSpecs();
@@ -413,61 +276,6 @@ namespace CortexDNA.ViewModels
 
 
 
-        private void OpenPrivacyRegistry(string? settingType)
-        {
-            if (string.IsNullOrEmpty(settingType)) return;
-
-            string keyPath = "";
-            switch (settingType)
-            {
-                case "Diagnostic":
-                    keyPath = @"Computer\HKEY_LOCAL_MACHINE\SOFTWARE\Policies\Microsoft\Windows\DataCollection";
-                    break;
-                case "Settings":
-                    keyPath = @"Computer\HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\ContentDeliveryManager";
-                    break;
-                case "Search":
-                    keyPath = @"Computer\HKEY_CURRENT_USER\Software\Policies\Microsoft\Windows\Explorer";
-                    break;
-            }
-
-            // 1. Re-verify setting status before opening
-            OnPropertyChanged(nameof(PrivacyDiagnosticDataEnabled));
-            OnPropertyChanged(nameof(PrivacySettingsSuggestionsEnabled));
-            OnPropertyChanged(nameof(PrivacyWebSearchEnabled));
-
-            // 2. Modify Regedit LastKey to jump straight to the key
-            try
-            {
-                using (RegistryKey key = Registry.CurrentUser.CreateSubKey(@"Software\Microsoft\Windows\CurrentVersion\Applets\Regedit", true))
-                {
-                    if (key != null)
-                    {
-                        key.SetValue("LastKey", keyPath, RegistryValueKind.String);
-                    }
-                }
-            }
-            catch (Exception ex)
-            {
-                Logger.Log($"Could not set Regedit LastKey: {ex.Message}");
-            }
-
-            // 3. Open Regedit
-            try
-            {
-                var psi = new ProcessStartInfo("regedit.exe")
-                {
-                    UseShellExecute = true
-                };
-                using (var process = Process.Start(psi))
-                {
-                }
-            }
-            catch (Exception ex)
-            {
-                Logger.Log($"Could not launch regedit: {ex.Message}");
-            }
-        }
 
         private async Task InitializeAndRefresh()
         {
