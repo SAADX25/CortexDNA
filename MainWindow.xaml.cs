@@ -187,7 +187,7 @@ namespace CortexDNA
             // Resume Monitoring
             if (DataContext is MainViewModel vm)
             {
-                vm.ResumeMonitoring();
+                vm.HardwareVM.ResumeMonitoring();
             }
         }
 
@@ -199,14 +199,14 @@ namespace CortexDNA
                 Hide();
                 if (DataContext is MainViewModel vm)
                 {
-                    vm.PauseMonitoring();
+                    vm.HardwareVM.PauseMonitoring();
                 }
             }
             else
             {
                 if (DataContext is MainViewModel vm)
                 {
-                    vm.ResumeMonitoring();
+                    vm.HardwareVM.ResumeMonitoring();
                 }
             }
         }
@@ -230,7 +230,7 @@ namespace CortexDNA
             base.OnClosed(e);
             if (DataContext is MainViewModel vm)
             {
-                vm.Close();
+                vm.HardwareVM.Close();
             }
         }
 
@@ -455,288 +455,6 @@ namespace CortexDNA
             OpenSystemTool("devmgmt.msc");
         }
 
-        private async void Button_DiskCleanup_Click(object sender, RoutedEventArgs e)
-        {
-            // 1. Scan Phase
-            TxtDiskCleanup.Text = "Scanning...";
-            
-            var scanResult = await Task.Run(() => ScanJunkFiles());
-
-            // 2. Report & Confirm
-            /* Old MessageBox Logic - Replaced with Modern Window
-            string sizeMsg = scanResult.TotalSizeMB > 1024 
-                ? $"{scanResult.TotalSizeMB / 1024.0:F2} GB" 
-                : $"{scanResult.TotalSizeMB:F0} MB";
-
-            string msg = $"Smart Scan found:\n\n" +
-                         $"• {scanResult.FileCount:N0} junk files\n" +
-                         $"• {sizeMsg} potential space\n\n" +
-                         "Locations:\n" +
-                         "• User & System Temp\n" +
-                         "• Prefetch & Recent Items\n" +
-                         "• Windows Update Cache\n" +
-                         "• Error Reporting Logs\n\n" +
-                         "Do you want to perform a Deep Clean?";
-
-            if (MessageBox.Show(msg, "Smart Deep Cleaner", MessageBoxButton.YesNo, MessageBoxImage.Information) != MessageBoxResult.Yes)
-            {
-                TxtDiskCleanup.Text = "CLEAN DISK";
-                return;
-            }
-            */
-
-            // New Modern Window Logic
-            var dialog = new CleanConfirmationWindow(scanResult.FileCount, scanResult.TotalSizeMB, scanResult.Locations);
-            dialog.Owner = this; // Center over main window
-            
-            bool? result = dialog.ShowDialog();
-            
-            if (result != true)
-            {
-                TxtDiskCleanup.Text = "CLEAN DISK";
-                return;
-            }
-
-            // 3. Deep Clean Phase (Explicit Yes Logic)
-            TxtDiskCleanup.Text = "Deep Cleaning...";
-            ((System.Windows.Controls.Button)sender).IsEnabled = false; // Prevent double clicks
-            
-            double freedMB = await Task.Run(() => CleanJunkFiles());
-
-            // 4. Success & Reset
-            ((System.Windows.Controls.Button)sender).IsEnabled = true;
-            TxtDiskCleanup.Text = "CLEAN DISK";
-            
-            System.Media.SystemSounds.Exclamation.Play();
-            
-            // Show new Result Window
-            long freedBytes = (long)(freedMB * 1024.0 * 1024.0);
-            var resultWindow = new CleanupResultsWindow(freedBytes, scanResult.FileCount); 
-            resultWindow.Owner = this;
-            resultWindow.ShowDialog();
-        }
-
-        // --- Helper Methods ---
-
-        private Dictionary<string, string> GetCleanPaths()
-        {
-            string systemRoot = Environment.GetFolderPath(Environment.SpecialFolder.Windows);
-            string programData = Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData);
-            
-            return new Dictionary<string, string>
-            {
-                { "User Temporary Files", System.IO.Path.GetTempPath() },
-                { "System Temp Folder", System.IO.Path.Combine(systemRoot, "Temp") },
-                { "Windows Prefetch", System.IO.Path.Combine(systemRoot, "Prefetch") },
-                { "Recent Items", Environment.GetFolderPath(Environment.SpecialFolder.Recent) },
-                { "Windows Update Cache", System.IO.Path.Combine(systemRoot, @"SoftwareDistribution\Download") },
-                { "Error Reporting Logs", System.IO.Path.Combine(programData, @"Microsoft\Windows\WER") }
-            };
-        }
-
-        private (int FileCount, double TotalSizeMB, List<CleanupLocationItem> Locations) ScanJunkFiles()
-        {
-            int count = 0;
-            long totalBytes = 0;
-            var locations = new List<CleanupLocationItem>();
-
-            foreach (var kvp in GetCleanPaths())
-            {
-                string name = kvp.Key;
-                string path = kvp.Value;
-                long locationBytes = 0;
-
-                if (!Directory.Exists(path)) 
-                {
-                    locations.Add(new CleanupLocationItem { Name = name, Bytes = 0, FormattedSize = "0 MB" });
-                    continue;
-                }
-
-                try
-                {
-                    // Recursive scan
-                    var options = new EnumerationOptions { 
-                        IgnoreInaccessible = true, 
-                        RecurseSubdirectories = true 
-                    };
-                    var files = Directory.GetFiles(path, "*.*", options);
-                    foreach (var f in files)
-                    {
-                        try
-                        {
-                            string fileName = Path.GetFileName(f).ToLower();
-                            if (fileName.StartsWith("thumbcache_") || fileName.StartsWith("iconcache_"))
-                                continue;
-
-                            count++;
-                            long size = new FileInfo(f).Length;
-                            totalBytes += size;
-                            locationBytes += size;
-                        }
-                        catch { }
-                    }
-                }
-                catch { }
-
-                locations.Add(new CleanupLocationItem 
-                { 
-                    Name = name, 
-                    Bytes = locationBytes, 
-                    FormattedSize = FormatByteSize(locationBytes) 
-                });
-            }
-
-            return (count, totalBytes / (1024.0 * 1024.0), locations);
-        }
-        
-        private string FormatByteSize(long bytes)
-        {
-            if (bytes == 0) return "0 MB";
-            if (bytes < 1048576) return $"{bytes / 1024.0:F0} KB";
-            double mb = bytes / 1048576.0;
-            if (mb > 1024) return $"{mb / 1024.0:F2} GB";
-            return $"{mb:F1} MB";
-        }
-
-        private long DeleteDirectoryRecursively(string target_dir)
-        {
-            long freedBytes = 0;
-            string[] files = Array.Empty<string>();
-            try
-            {
-                files = Directory.GetFiles(target_dir);
-            }
-            catch { }
-
-            foreach (string file in files)
-            {
-                try
-                {
-                    string fileName = Path.GetFileName(file).ToLower();
-                    if (fileName.StartsWith("thumbcache_") || fileName.StartsWith("iconcache_"))
-                        continue;
-
-                    var fi = new FileInfo(file);
-                    long size = fi.Length;
-                    File.SetAttributes(file, FileAttributes.Normal); // Fixes Read-Only issue
-                    fi.Delete();
-                    freedBytes += size;
-                }
-                catch { /* Silently skip locked files */ }
-            }
-
-            string[] dirs = Array.Empty<string>();
-            try
-            {
-                dirs = Directory.GetDirectories(target_dir);
-            }
-            catch { }
-
-            foreach (string dir in dirs)
-            {
-                freedBytes += DeleteDirectoryRecursively(dir);
-            }
-
-            try
-            {
-                Directory.Delete(target_dir, false);
-            }
-            catch { /* Silently skip folders that still contain locked files */ }
-            
-            return freedBytes;
-        }
-
-        public class CleanupLocationItem
-        {
-            public string Name { get; set; } = string.Empty;
-            public string FormattedSize { get; set; } = string.Empty;
-            public long Bytes { get; set; }
-        }
-
-        private double CleanJunkFiles()
-        {
-            long deletedBytes = 0;
-            string recentPath = Environment.GetFolderPath(Environment.SpecialFolder.Recent);
-            
-            // A. Stop Services for deep clean
-            StopUpdateServices();
-
-            // B. Clean
-            foreach (var path in GetCleanPaths().Values)
-            {
-                if (!Directory.Exists(path)) continue;
-
-                // Safety Check: Is this the Recent folder?
-                bool isRecentFolder = string.Equals(path, recentPath, StringComparison.OrdinalIgnoreCase);
-
-                try
-                {
-                    // 1. Files (Always safe to delete individual files in these paths)
-                    foreach (var file in Directory.GetFiles(path))
-                    {
-                        try
-                        {
-                            string fileName = Path.GetFileName(file).ToLower();
-                            if (fileName.StartsWith("thumbcache_") || fileName.StartsWith("iconcache_"))
-                                continue;
-
-                            var fi = new FileInfo(file);
-                            long size = fi.Length;
-                            File.SetAttributes(file, FileAttributes.Normal); // Fixes Read-Only issue
-                            fi.Delete();
-                            deletedBytes += size;
-                        }
-                        catch { }
-                    }
-
-                    // 2. Directories (SKIP for Recent folder to protect Quick Access)
-                    if (!isRecentFolder)
-                    {
-                        foreach (var dir in Directory.GetDirectories(path))
-                        {
-                            deletedBytes += DeleteDirectoryRecursively(dir);
-                        }
-                    }
-                }
-                catch { }
-            }
-
-            // C. Restart Services
-            StartUpdateServices();
-
-            return deletedBytes / (1024.0 * 1024.0);
-        }
-
-        private void StopUpdateServices()
-        {
-            RunHiddenCmd("net stop wuauserv");
-            RunHiddenCmd("net stop bits");
-        }
-
-        private void StartUpdateServices()
-        {
-            RunHiddenCmd("net start wuauserv");
-            RunHiddenCmd("net start bits");
-        }
-
-        private void RunHiddenCmd(string cmd)
-        {
-            try
-            {
-                var psi = new System.Diagnostics.ProcessStartInfo("cmd.exe", "/c " + cmd)
-                {
-                    CreateNoWindow = true,
-                    UseShellExecute = false,
-                    WindowStyle = System.Diagnostics.ProcessWindowStyle.Hidden
-                };
-                using (var process = System.Diagnostics.Process.Start(psi))
-                {
-                    process?.WaitForExit(3000); // Wait max 3s
-                }
-            }
-            catch { }
-        }
-
         private void Button_RegEdit_Click(object sender, RoutedEventArgs e)
         {
             OpenSystemTool("regedit.exe");
@@ -782,11 +500,11 @@ namespace CortexDNA
 
         private async void CopyBiosInfo_Click(object sender, RoutedEventArgs e)
         {
-            if (DataContext is MainViewModel vm && !string.IsNullOrEmpty(vm.SystemInfo.BiosInfo))
+            if (DataContext is MainViewModel vm && !string.IsNullOrEmpty(vm.HardwareVM.SystemInfo.BiosInfo))
             {
                 try
                 {
-                    System.Windows.Clipboard.SetText(vm.SystemInfo.BiosInfo);
+                    System.Windows.Clipboard.SetText(vm.HardwareVM.SystemInfo.BiosInfo);
                     
                     // Show "Copied!" feedback - Assuming TxtCopyFeedback exists in XAML but might be named differently or removed in recent edits.
                     // Checking XAML history, it seems TxtCopyFeedback was part of the old layout.
@@ -798,38 +516,6 @@ namespace CortexDNA
                     // The new layout has buttons in a Grid.
                     // Let's remove the feedback logic for now to fix the build error, or re-add the textblock to XAML.
                     // User asked for "Professional Deployment", stability is key. Removing broken UI logic is safer.
-                }
-                catch { }
-            }
-        }
-
-        private async void CopyCpuInfo_Click(object sender, RoutedEventArgs e)
-        {
-            if (DataContext is MainViewModel vm && !string.IsNullOrEmpty(vm.CpuName))
-            {
-                try
-                {
-                    System.Windows.Clipboard.SetText(vm.CpuName);
-                    
-                    TxtCpuCopyFeedback.Visibility = Visibility.Visible;
-                    await Task.Delay(2000);
-                    TxtCpuCopyFeedback.Visibility = Visibility.Collapsed;
-                }
-                catch { }
-            }
-        }
-
-        private async void CopyGpuInfo_Click(object sender, RoutedEventArgs e)
-        {
-            if (DataContext is MainViewModel vm && !string.IsNullOrEmpty(vm.GpuName))
-            {
-                try
-                {
-                    System.Windows.Clipboard.SetText(vm.GpuName);
-                    
-                    TxtGpuCopyFeedback.Visibility = Visibility.Visible;
-                    await Task.Delay(2000);
-                    TxtGpuCopyFeedback.Visibility = Visibility.Collapsed;
                 }
                 catch { }
             }

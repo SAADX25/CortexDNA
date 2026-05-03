@@ -7,7 +7,7 @@ namespace CortexDNA
 {
     public partial class CleanConfirmationWindow : Window
     {
-        public CleanConfirmationWindow(int fileCount, double totalSizeMB, List<MainWindow.CleanupLocationItem> locations)
+        public CleanConfirmationWindow(int fileCount, double totalSizeMB, List<ViewModels.HardwareViewModel.CleanupLocationItem> locations)
         {
             InitializeComponent();
             
