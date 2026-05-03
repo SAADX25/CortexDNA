@@ -33,7 +33,7 @@
             <Setter Property="Padding" Value="30"/>
             <Setter Property="Effect">
                 <Setter.Value>
-                    <DropShadowEffect Color="Black" BlurRadius="10" ShadowDepth="2" Opacity="0.3" RenderingBias="Performance"/>
+                    <DropShadowEffect Color="#000000" BlurRadius="28" ShadowDepth="6" Opacity="0.55" Direction="270" RenderingBias="Quality"/>
                 </Setter.Value>
             </Setter>
         </Style>
@@ -214,6 +214,140 @@
                 </Trigger>
             </Style.Triggers>
         </Style>
+
+        <!-- ══ Dark ContextMenu Style ══════════════════════════════════════ -->
+        <Style TargetType="ContextMenu">
+            <Setter Property="Background" Value="#FF1C1C1C"/>
+            <Setter Property="BorderBrush" Value="#FF2B2B2B"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Padding" Value="4"/>
+            <Setter Property="Effect">
+                <Setter.Value>
+                    <DropShadowEffect Color="Black" BlurRadius="20" ShadowDepth="4" Opacity="0.6" Direction="270"/>
+                </Setter.Value>
+            </Setter>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ContextMenu">
+                        <Border Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="10"
+                                Padding="{TemplateBinding Padding}">
+                            <Border.Effect>
+                                <DropShadowEffect Color="Black" BlurRadius="20" ShadowDepth="4" Opacity="0.6" Direction="270"/>
+                            </Border.Effect>
+                            <ItemsPresenter/>
+                        </Border>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style TargetType="MenuItem">
+            <Setter Property="Foreground" Value="#FFDDDDEE"/>
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="FontFamily" Value="Segoe UI Variable Display, Segoe UI"/>
+            <Setter Property="FontSize" Value="13"/>
+            <Setter Property="Padding" Value="12,8"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="MenuItem">
+                        <Border x:Name="border" Background="{TemplateBinding Background}" CornerRadius="6" Margin="2,1">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto" SharedSizeGroup="MenuItemIconColumn"/>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+                                <ContentPresenter x:Name="IconContent" Grid.Column="0" ContentSource="Icon" VerticalAlignment="Center" Margin="8,0,4,0"/>
+                                <ContentPresenter Grid.Column="1" ContentSource="Header"
+                                                  RecognizesAccessKey="True"
+                                                  VerticalAlignment="Center"
+                                                  Margin="{TemplateBinding Padding}"
+                                                  TextElement.Foreground="{TemplateBinding Foreground}"/>
+                                <TextBlock Grid.Column="2" Text="{TemplateBinding InputGestureText}" Margin="8,0" VerticalAlignment="Center"
+                                           Foreground="#FF666688" FontSize="11"/>
+                            </Grid>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsHighlighted" Value="True">
+                                <Setter TargetName="border" Property="Background" Value="#FF2A2A2A"/>
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter Property="Foreground" Value="#FF666666"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style TargetType="Separator">
+            <Setter Property="Background" Value="#FF2B2B2B"/>
+            <Setter Property="Height" Value="1"/>
+            <Setter Property="Margin" Value="8,4"/>
+        </Style>
+
+        <!-- ══ Modern Slider Style ══════════════════════════════════════════ -->
+        <Style x:Key="ModernSliderStyle" TargetType="Slider">
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Slider">
+                        <Grid>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto" MinHeight="{TemplateBinding MinHeight}"/>
+                                <RowDefinition Height="Auto"/>
+                            </Grid.RowDefinitions>
+                            <Track x:Name="PART_Track" Grid.Row="1">
+                                <Track.DecreaseRepeatButton>
+                                    <RepeatButton Command="Slider.DecreaseLarge">
+                                        <RepeatButton.Template>
+                                            <ControlTemplate TargetType="RepeatButton">
+                                                <!-- Filled / left portion -->
+                                                <Border Height="4" CornerRadius="2" Background="#FF00D4FF"/>
+                                            </ControlTemplate>
+                                        </RepeatButton.Template>
+                                    </RepeatButton>
+                                </Track.DecreaseRepeatButton>
+                                <Track.Thumb>
+                                    <Thumb>
+                                        <Thumb.Template>
+                                            <ControlTemplate TargetType="Thumb">
+                                                <Ellipse x:Name="thumb" Width="14" Height="14"
+                                                         Fill="#FF00D4FF">
+                                                    <Ellipse.Effect>
+                                                        <DropShadowEffect Color="#00D4FF" BlurRadius="10" ShadowDepth="0" Opacity="0.8"/>
+                                                    </Ellipse.Effect>
+                                                </Ellipse>
+                                                <ControlTemplate.Triggers>
+                                                    <Trigger Property="IsMouseOver" Value="True">
+                                                        <Setter TargetName="thumb" Property="Width" Value="16"/>
+                                                        <Setter TargetName="thumb" Property="Height" Value="16"/>
+                                                    </Trigger>
+                                                </ControlTemplate.Triggers>
+                                            </ControlTemplate>
+                                        </Thumb.Template>
+                                    </Thumb>
+                                </Track.Thumb>
+                                <Track.IncreaseRepeatButton>
+                                    <RepeatButton Command="Slider.IncreaseLarge">
+                                        <RepeatButton.Template>
+                                            <ControlTemplate TargetType="RepeatButton">
+                                                <!-- Unfilled / right portion -->
+                                                <Border Height="4" CornerRadius="2" Background="#FF2B2B2B"/>
+                                            </ControlTemplate>
+                                        </RepeatButton.Template>
+                                    </RepeatButton>
+                                </Track.IncreaseRepeatButton>
+                            </Track>
+                        </Grid>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
     </Window.Resources>
 
     <WindowChrome.WindowChrome>
@@ -253,12 +387,10 @@
                     <TextBlock Text="&#xE713;" FontFamily="Segoe MDL2 Assets" FontSize="14" Foreground="{DynamicResource PrimaryTextBrush}"/>
                     <Button.ContextMenu>
                         <ContextMenu>
-                            <MenuItem Header="Run on Startup" IsCheckable="True" IsChecked="{Binding RunOnStartup}" />
-                            <Separator/>
                             <MenuItem Header="Background Opacity" IsEnabled="False"/>
                             <MenuItem>
                                 <MenuItem.Header>
-                                    <Slider x:Name="OpacitySlider" Width="120" Minimum="50" Maximum="100" Value="100" SmallChange="1" LargeChange="5" ValueChanged="OpacitySlider_ValueChanged"/>
+                                    <Slider x:Name="OpacitySlider" Style="{StaticResource ModernSliderStyle}" Width="150" Minimum="50" Maximum="100" Value="100" SmallChange="1" LargeChange="5" ValueChanged="OpacitySlider_ValueChanged"/>
                                 </MenuItem.Header>
                             </MenuItem>
                         </ContextMenu>
@@ -278,27 +410,6 @@
                     <TextBlock Text="&#xE706;" FontFamily="Segoe MDL2 Assets" FontSize="14" Foreground="{DynamicResource PrimaryTextBrush}"/>
                 </Button>
 
-                                <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,20,0">
-                    <Ellipse Width="6" Height="6" Fill="{DynamicResource SuccessBrush}" Margin="0,0,6,0">
-                        <Ellipse.Style>
-                            <Style TargetType="Ellipse">
-                                <Style.Triggers>
-                                    <EventTrigger RoutedEvent="Loaded">
-                                        <BeginStoryboard>
-                                            <Storyboard>
-                                                <DoubleAnimation Storyboard.TargetProperty="Opacity" From="0.3" To="1.0" Duration="0:0:1.5" AutoReverse="True" RepeatBehavior="Forever"/>
-                                            </Storyboard>
-                                        </BeginStoryboard>
-                                    </EventTrigger>
-                                </Style.Triggers>
-                            </Style>
-                        </Ellipse.Style>
-                        <Ellipse.Effect>
-                            <DropShadowEffect Color="{DynamicResource SuccessColor}" BlurRadius="5" ShadowDepth="0"/>
-                        </Ellipse.Effect>
-                    </Ellipse>
-                    <TextBlock Text="{Binding SystemInfo.Uptime, StringFormat='Uptime: {0}'}" Foreground="{DynamicResource SuccessBrush}" FontSize="12" VerticalAlignment="Center"/>
-                </StackPanel>
 
                 
                 <Button Content="&#xE921;" Style="{StaticResource WindowControlButtonStyle}" Click="BtnMinimize_Click" WindowChrome.IsHitTestVisibleInChrome="True"/>

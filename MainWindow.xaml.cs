@@ -100,27 +100,7 @@ namespace CortexDNA
                 // Build Context Menu
                 var contextMenu = new ContextMenuStrip();
                 
-                // 1. Run on Startup (Toggle)
-                var runOnStartupItem = new ToolStripMenuItem("Run on Startup");
-                runOnStartupItem.Image = GenerateColoredCircle(System.Drawing.Color.LightGreen); // 🟢
-                runOnStartupItem.CheckOnClick = true;
-                
-                // Check current state from ViewModel logic or Registry
-                if (DataContext is MainViewModel vm)
-                {
-                    runOnStartupItem.Checked = vm.RunOnStartup;
-                    runOnStartupItem.Click += (s, e) => vm.RunOnStartup = runOnStartupItem.Checked;
-                }
-                else
-                {
-                    // Fallback if ViewModel not ready
-                    runOnStartupItem.Checked = false;
-                }
-                
-                contextMenu.Items.Add(runOnStartupItem);
-                contextMenu.Items.Add("-");
 
-                // 2. Open Cortex DNA
                 var openItem = new ToolStripMenuItem("Open Cortex DNA", null, (s, e) => RestoreWindow());
                 // openItem.Image = ... (Optional: Folder icon)
                 contextMenu.Items.Add(openItem);

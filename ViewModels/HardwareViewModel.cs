@@ -226,46 +226,6 @@ namespace CortexDNA.ViewModels
             RefreshData(); 
         }
 
-        private bool CheckStartupRegistry()
-        {
-            try
-            {
-                using (RegistryKey key = Registry.CurrentUser.OpenSubKey(@"SOFTWARE\Microsoft\Windows\CurrentVersion\Run", false))
-                {
-                    return key?.GetValue("CortexDNA") != null;
-                }
-            }
-            catch { return false; }
-        }
-
-        private void SetStartupRegistry(bool enable)
-        {
-            try
-            {
-                using (RegistryKey key = Registry.CurrentUser.OpenSubKey(@"Software\Microsoft\Windows\CurrentVersion\Run", true))
-                {
-                    if (enable)
-                    {
-                        // Use Process.GetCurrentProcess().MainModule.FileName for self-contained exe
-                        string path = Process.GetCurrentProcess().MainModule.FileName;
-                        key.SetValue("CortexDNA", $"\"{path}\"");
-                        Logger.Log($"Startup Enabled: {path}");
-                    }
-                    else
-                    {
-                        key.DeleteValue("CortexDNA", false);
-                        Logger.Log("Startup Disabled");
-                    }
-                }
-            }
-            catch (Exception ex)
-            {
-                Logger.Log($"Startup Registry Error: {ex.Message}");
-                // Ideally show a message to user if UAC blocks it, but this runs silently in VM.
-            }
-        }
-
-
 
 
         private async Task InitializeAndRefresh()
