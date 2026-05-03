@@ -15,13 +15,14 @@
     </Window.DataContext>
 
     <Window.Resources>
-        <!-- Theme brushes (populated at runtime by code-behind) -->
-        <SolidColorBrush x:Key="AppBackgroundBrush" Color="{DynamicResource AppBackgroundColor}" Opacity="0.94"/>
-        <SolidColorBrush x:Key="PrimaryTextBrush" Color="{DynamicResource PrimaryTextColor}"/>
-        <SolidColorBrush x:Key="SecondaryTextBrush" Color="{DynamicResource SecondaryTextColor}"/>
-        <SolidColorBrush x:Key="CardBackgroundBrush" Color="{DynamicResource CardBackgroundColor}"/>
-        <SolidColorBrush x:Key="CardBorderBrush" Color="{DynamicResource CardBorderColor}"/>
-        <SolidColorBrush x:Key="AccentBrush" Color="{DynamicResource AccentColor}"/>
+        <!-- Theme brushes are populated at runtime by ApplyTheme() in code-behind -->
+        <!-- Placeholder brushes so XAML designer doesn't break -->
+        <SolidColorBrush x:Key="AppBackgroundBrush" Color="#FF121212"/>
+        <SolidColorBrush x:Key="PrimaryTextBrush" Color="#FFFFFFFF"/>
+        <SolidColorBrush x:Key="SecondaryTextBrush" Color="#FFAAAAAA"/>
+        <SolidColorBrush x:Key="CardBackgroundBrush" Color="#FF1E1E2E"/>
+        <SolidColorBrush x:Key="CardBorderBrush" Color="#FF333355"/>
+        <SolidColorBrush x:Key="AccentBrush" Color="#FF7B61FF"/>
         <!-- Modern Card Style -->
         <Style x:Key="CardStyle" TargetType="Border">
             <Setter Property="Background" Value="{DynamicResource CardBackgroundBrush}"/>
