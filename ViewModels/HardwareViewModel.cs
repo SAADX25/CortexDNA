@@ -20,10 +20,11 @@ using System.Runtime.InteropServices;
 
 namespace CortexDNA.ViewModels
 {
-    public class HardwareViewModel : ViewModelBase
+    public class HardwareViewModel : ViewModelBase, IDisposable
     {
         private readonly Computer _computer;
         private DispatcherTimer _timer;
+        private bool _disposed = false;
         private PerformanceCounter? _cpuPerfCounter;
         private double _baseClockGHz = 3.2; // Default for i7-8700
         private long _prevBytesReceived = 0;
@@ -233,21 +234,22 @@ namespace CortexDNA.ViewModels
             // 3. Delay the Background Scan Slightly (Stabilize WMI/Services)
             await Task.Delay(1500);
 
-             try
+            try
             {
                 _computer.Open();
-                System.Windows.Application.Current.Dispatcher.Invoke(() => StatusMessage = "Monitoring Active");
+                System.Windows.Application.Current?.Dispatcher.Invoke(() => StatusMessage = "Monitoring Active");
             }
             catch (Exception ex)
             {
-                 System.Windows.Application.Current.Dispatcher.Invoke(() => StatusMessage = $"Error: {ex.Message} (Run as Admin?)");
+                System.Windows.Application.Current?.Dispatcher.Invoke(() => StatusMessage = $"Error: {ex.Message} (Run as Admin?)");
             }
 
-            // Initialize Performance Counters
-            InitializeCounters();
+            // Initialize Performance Counters (runs on background thread — no UI writes)
+            await Task.Run(() => InitializeCounters());
 
-            // Fetch WMI Info and Save Cache
-            RefreshSystemInfo();
+            // Fetch WMI Info and Save Cache (runs on background thread)
+            // Each property update inside is dispatched back to the UI thread.
+            await Task.Run(() => RefreshSystemInfo());
             
             // Initial Scan
             RefreshData();
@@ -255,9 +257,9 @@ namespace CortexDNA.ViewModels
 
         private void InitializeCounters()
         {
+            // WMI: Base clock speed
             try
             {
-                // CPU Speed Base Clock
                 using (var searcher = new ManagementObjectSearcher("SELECT MaxClockSpeed FROM Win32_Processor"))
                 {
                     foreach (var obj in searcher.Get())
@@ -265,19 +267,27 @@ namespace CortexDNA.ViewModels
                         if (obj["MaxClockSpeed"] != null)
                         {
                             _baseClockGHz = Convert.ToDouble(obj["MaxClockSpeed"]) / 1000.0;
-                            break; 
+                            break;
                         }
                     }
                 }
-                
-                _cpuPerfCounter = new PerformanceCounter("Processor Information", "% Processor Performance", "_Total");
-                _cpuPerfCounter.NextValue(); // First call always returns 0
-
-                // Network baseline
             }
-            catch (Exception ex)
+            catch
             {
-                StatusMessage = $"Warning: Counters init failed ({ex.Message})";
+                // Fallback: keep the default _baseClockGHz value
+            }
+
+            // Performance Counter — separate try so a WMI failure above doesn't prevent this
+            try
+            {
+                _cpuPerfCounter = new PerformanceCounter("Processor Information", "% Processor Performance", "_Total");
+                _cpuPerfCounter.NextValue(); // First call always returns 0, discard it
+            }
+            catch
+            {
+                // PerformanceCounter unavailable on some stripped/locked-down OS installs.
+                // _cpuPerfCounter stays null; callers already guard against null.
+                _cpuPerfCounter = null;
             }
         }
         
@@ -353,42 +363,58 @@ namespace CortexDNA.ViewModels
 
         private void RefreshSystemInfo()
         {
+            // ── Each WMI block is individually guarded so a single failure
+            //    (e.g. a corrupted WMI class) cannot prevent other queries from running.
+            // ── All UI-bound property writes are dispatched to the UI thread because
+            //    this method is called from a background Task.
+
+            var dispatch = System.Windows.Application.Current?.Dispatcher;
+
+            // ── 1. OS Info ────────────────────────────────────────────────────────────
             try
             {
-                // 1. OS Info
                 using (var searcher = new ManagementObjectSearcher("SELECT Caption, BuildNumber FROM Win32_OperatingSystem"))
                 {
                     foreach (var obj in searcher.Get())
                     {
-                        SystemInfo.OsName = $"{obj["Caption"]} (Build {obj["BuildNumber"]})";
+                        string osName = $"{obj["Caption"]} (Build {obj["BuildNumber"]})";
+                        dispatch?.Invoke(() => SystemInfo.OsName = osName);
                     }
                 }
+            }
+            catch
+            {
+                dispatch?.Invoke(() => SystemInfo.OsName = "N/A");
+            }
 
-                // 2. BIOS & Motherboard Info
-                string manufacturer = "Unknown";
-                string version = "Unknown";
-                string date = "Unknown";
-                string boardProduct = "Unknown";
-                string boardManuf = "Unknown";
+            // ── 2. BIOS Info ──────────────────────────────────────────────────────────
+            string manufacturer = "N/A";
+            string version = "N/A";
+            string date = "N/A";
 
-                // BIOS
+            try
+            {
                 using (var searcher = new ManagementObjectSearcher("SELECT Manufacturer, SMBIOSBIOSVersion, ReleaseDate FROM Win32_BIOS"))
                 {
                     foreach (var obj in searcher.Get())
                     {
-                        manufacturer = obj["Manufacturer"]?.ToString() ?? "Unknown";
-                        version = obj["SMBIOSBIOSVersion"]?.ToString() ?? "Unknown";
-                        
+                        manufacturer = obj["Manufacturer"]?.ToString() ?? "N/A";
+                        version = obj["SMBIOSBIOSVersion"]?.ToString() ?? "N/A";
+
                         string rawDate = obj["ReleaseDate"]?.ToString() ?? "";
                         if (rawDate.Length >= 8)
-                        {
-                            // WMI Date Format: yyyymmdd...
                             date = $"{rawDate.Substring(0, 4)}-{rawDate.Substring(4, 2)}-{rawDate.Substring(6, 2)}";
-                        }
                     }
                 }
+            }
+            catch { /* BIOS query failed — safe fallbacks already set */ }
 
-                // Motherboard
+            // ── 3. Motherboard Info ───────────────────────────────────────────────────
+            string boardProduct = "N/A";
+            string boardManuf = "N/A";
+
+            try
+            {
                 using (var searcher = new ManagementObjectSearcher("SELECT Product, Manufacturer FROM Win32_BaseBoard"))
                 {
                     foreach (var obj in searcher.Get())
@@ -397,34 +423,45 @@ namespace CortexDNA.ViewModels
                         boardManuf = obj["Manufacturer"]?.ToString() ?? "";
                     }
                 }
+            }
+            catch { /* Motherboard query failed */ }
 
-                SystemInfo.MotherboardModel = !string.IsNullOrEmpty(boardProduct) 
-                    ? $"{boardManuf} {boardProduct}" 
-                    : $"{boardManuf} (Unknown Model)";
-                
+            string moboModel = !string.IsNullOrEmpty(boardProduct)
+                ? $"{boardManuf} {boardProduct}"
+                : $"{boardManuf} (Unknown Model)";
+
+            dispatch?.Invoke(() =>
+            {
+                SystemInfo.MotherboardModel = moboModel;
                 SystemInfo.BiosVersion = version;
                 SystemInfo.BiosDate = date;
-                SystemInfo.BiosInfo = $"{manufacturer} (v{version})"; // Legacy fallback
+                SystemInfo.BiosInfo = $"{manufacturer} (v{version})";
+            });
 
-                // CPU Info
-                // Win32_Processor is standard for both Intel and AMD.
-                // We take the first CPU found (multi-socket systems will just show the first one here)
+            // ── 4. CPU Name ───────────────────────────────────────────────────────────
+            try
+            {
                 using (var searcher = new ManagementObjectSearcher("SELECT Name FROM Win32_Processor"))
                 {
                     foreach (var obj in searcher.Get())
                     {
                         if (obj["Name"] != null)
                         {
-                            CpuName = obj["Name"].ToString()?.Trim() ?? "Unknown CPU";
-                            break; 
+                            string cpuName = obj["Name"].ToString()?.Trim() ?? "Unknown CPU";
+                            dispatch?.Invoke(() => CpuName = cpuName);
+                            break;
                         }
                     }
                 }
-                
-                // GPU Info (Robust Multi-GPU Logic)
-                // 1. Fetch ALL Video Controllers
-                // 2. Filter out basic display adapters if possible
-                // 3. Prioritize by VRAM size or "NVIDIA/AMD" keywords
+            }
+            catch
+            {
+                dispatch?.Invoke(() => CpuName = "N/A");
+            }
+
+            // ── 5. GPU Info (Robust Multi-GPU) ────────────────────────────────────────
+            try
+            {
                 var gpus = new System.Collections.Generic.List<(string Name, long VRam)>();
 
                 using (var searcher = new ManagementObjectSearcher("SELECT Name, AdapterRAM FROM Win32_VideoController"))
@@ -434,35 +471,39 @@ namespace CortexDNA.ViewModels
                         string name = obj["Name"]?.ToString() ?? "Unknown GPU";
                         long vram = 0;
                         if (obj["AdapterRAM"] != null)
-                        {
                             long.TryParse(obj["AdapterRAM"].ToString(), out vram);
-                        }
                         gpus.Add((name, vram));
                     }
                 }
 
+                string gpuName;
                 if (gpus.Count > 0)
                 {
-                    // Sort by VRAM descending, then by Name length (longer usually means more specific/dedicated)
-                    // Also prioritize known dedicated brands keywords if VRAM is missing/equal
                     var bestGpu = gpus
                         .OrderByDescending(g => g.VRam)
                         .ThenByDescending(g => g.Name.Contains("NVIDIA") || g.Name.Contains("AMD") || g.Name.Contains("Radeon"))
-                        .ThenByDescending(g => g.Name.Length) 
+                        .ThenByDescending(g => g.Name.Length)
                         .First();
-
-                    GpuName = bestGpu.Name;
+                    gpuName = bestGpu.Name;
                 }
                 else
                 {
-                    GpuName = "No GPU Detected";
+                    gpuName = "No GPU Detected";
                 }
 
-                // 3. RAM Info (Total & Speed)
-                long totalCapacity = 0;
-                uint speed = 0;
+                dispatch?.Invoke(() => GpuName = gpuName);
+            }
+            catch
+            {
+                dispatch?.Invoke(() => GpuName = "N/A");
+            }
 
-                // Total Memory (More accurate from ComputerSystem)
+            // ── 6. RAM Info ───────────────────────────────────────────────────────────
+            long totalCapacity = 0;
+            uint speed = 0;
+
+            try
+            {
                 using (var searcher = new ManagementObjectSearcher("SELECT TotalPhysicalMemory FROM Win32_ComputerSystem"))
                 {
                     foreach (var obj in searcher.Get())
@@ -471,8 +512,11 @@ namespace CortexDNA.ViewModels
                             totalCapacity = Convert.ToInt64(obj["TotalPhysicalMemory"]);
                     }
                 }
+            }
+            catch { /* Total RAM query failed — totalCapacity stays 0 */ }
 
-                // RAM Speed
+            try
+            {
                 using (var searcher = new ManagementObjectSearcher("SELECT Speed FROM Win32_PhysicalMemory"))
                 {
                     foreach (var obj in searcher.Get())
@@ -480,26 +524,35 @@ namespace CortexDNA.ViewModels
                         if (obj["Speed"] != null && speed == 0)
                         {
                             speed = Convert.ToUInt32(obj["Speed"]);
-                            break; // Assume all sticks match or take the first one
+                            break;
                         }
                     }
                 }
-                
-                _totalRamBytes = totalCapacity;
-                double gb = totalCapacity / (1024.0 * 1024 * 1024);
-                
-                SystemInfo.RamInfo = speed > 0 
-                    ? $"{gb:F1} GB @ {speed} MHz" 
-                    : $"{gb:F1} GB";
-                
-                // Keep these for backward compatibility if needed, or legacy display
-                SystemInfo.RamTotal = $"{gb:F1} GB";
-                SystemInfo.RamType = speed > 0 ? $"{speed} MHz" : "Unknown";
+            }
+            catch { /* RAM speed query failed — speed stays 0 */ }
 
-                // Save to cache
-                try
+            _totalRamBytes = totalCapacity;
+            double gb = totalCapacity > 0 ? totalCapacity / (1024.0 * 1024 * 1024) : 0;
+
+            string ramInfo = speed > 0 ? $"{gb:F1} GB @ {speed} MHz" : $"{gb:F1} GB";
+            string ramTotal = $"{gb:F1} GB";
+            string ramType = speed > 0 ? $"{speed} MHz" : "Unknown";
+
+            dispatch?.Invoke(() =>
+            {
+                SystemInfo.RamInfo = ramInfo;
+                SystemInfo.RamTotal = ramTotal;
+                SystemInfo.RamType = ramType;
+            });
+
+            // ── 7. Persist cache (best-effort) ─────────────────────────────────────
+            try
+            {
+                // Read current values on the UI thread so we snapshot consistent data
+                SystemSpecs specs = null!;
+                dispatch?.Invoke(() =>
                 {
-                    var specs = new SystemSpecs
+                    specs = new SystemSpecs
                     {
                         OsName = SystemInfo.OsName,
                         BiosInfo = SystemInfo.BiosInfo,
@@ -513,27 +566,19 @@ namespace CortexDNA.ViewModels
                         RamType = SystemInfo.RamType,
                         TotalRamBytes = _totalRamBytes
                     };
+                });
 
-                    string dir = Path.GetDirectoryName(_specsCachePath);
-                    if (!Directory.Exists(dir))
-                    {
-                        Directory.CreateDirectory(dir);
-                    }
-
+                if (specs != null)
+                {
+                    string dir = Path.GetDirectoryName(_specsCachePath)!;
+                    if (!Directory.Exists(dir)) Directory.CreateDirectory(dir);
                     string json = JsonSerializer.Serialize(specs, new JsonSerializerOptions { WriteIndented = true });
                     File.WriteAllText(_specsCachePath, json);
                 }
-                catch (Exception ex)
-                {
-                    // Log or ignore saving error
-                    System.Diagnostics.Debug.WriteLine($"Failed to save specs: {ex.Message}");
-                }
-
             }
             catch (Exception ex)
             {
-                SystemInfo.OsName = "Error fetching info";
-                SystemInfo.BiosInfo = ex.Message;
+                System.Diagnostics.Debug.WriteLine($"Failed to save specs cache: {ex.Message}");
             }
         }
 
@@ -570,7 +615,11 @@ namespace CortexDNA.ViewModels
 
                     // Performance Counters (Lightweight, keep running but slower)
                     float cpuPerf = 0;
-                    if (_cpuPerfCounter != null) cpuPerf = _cpuPerfCounter.NextValue();
+                    if (_cpuPerfCounter != null)
+                    {
+                        try { cpuPerf = _cpuPerfCounter.NextValue(); }
+                        catch { cpuPerf = 0; } // Counter can throw if the category is invalidated at runtime
+                    }
 
                     NativeMethods.MEMORYSTATUSEX memStatus = new NativeMethods.MEMORYSTATUSEX();
                     memStatus.dwLength = (uint)Marshal.SizeOf(typeof(NativeMethods.MEMORYSTATUSEX));
@@ -1215,11 +1264,29 @@ namespace CortexDNA.ViewModels
             catch { }
         }
 
-        public void Close()
+        /// <summary>
+        /// Stops all timers and releases hardware monitoring resources.
+        /// Call this from the application shutdown handler.
+        /// </summary>
+        public void Dispose()
         {
-            _computer.Close();
-            if (_cpuPerfCounter != null) _cpuPerfCounter.Dispose();
+            if (_disposed) return;
+            _disposed = true;
+
+            // Stop and dispose the polling timer first so no more ticks fire
+            _timer?.Stop();
+            _timer = null!;
+
+            // Release LibreHardwareMonitor handles
+            try { _computer?.Close(); } catch { }
+
+            // Dispose the PerformanceCounter
+            try { _cpuPerfCounter?.Dispose(); } catch { }
+            _cpuPerfCounter = null;
         }
+
+        // Keep the old Close() as a thin wrapper so any existing callers don't break.
+        public void Close() => Dispose();
 
         private class SystemSpecs
         {
