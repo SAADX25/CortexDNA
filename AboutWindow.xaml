@@ -65,7 +65,7 @@
             <TextBlock Grid.Row="1" Text="Cortex DNA" FontSize="26" FontWeight="Bold" Foreground="White" HorizontalAlignment="Center" Margin="0,0,0,5"/>
 
             <!-- 3. Primary Version -->
-            <TextBlock Grid.Row="2" x:Name="TxtMainVersion" Text="Version: v1.3.5 all" FontSize="16" FontWeight="SemiBold" Foreground="#CCCCCC" HorizontalAlignment="Center" Margin="0,0,0,2"/>
+            <TextBlock Grid.Row="2" x:Name="TxtMainVersion" Text="Version: v1.5.0" FontSize="16" FontWeight="SemiBold" Foreground="#CCCCCC" HorizontalAlignment="Center" Margin="0,0,0,2"/>
 
             <!-- 4. Subtle Extended Version (Git Hash) -->
             <TextBlock Grid.Row="3" x:Name="TxtSubVersion" Text="(Build: e3df...)" FontSize="11" Foreground="#666666" HorizontalAlignment="Center" Margin="0,0,0,20"/>

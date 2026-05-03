@@ -71,7 +71,7 @@ public partial class App : System.Windows.Application
         RenderOptions.ProcessRenderMode = RenderMode.SoftwareOnly;
         
         // Log Startup
-        Logger.Log("Application Starting (v1.3.5 all) - RenderMode: SoftwareOnly");
+        Logger.Log("Application Starting (v1.5.0) - RenderMode: SoftwareOnly");
 
         base.OnStartup(e);
 

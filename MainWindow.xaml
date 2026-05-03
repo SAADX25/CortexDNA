@@ -269,7 +269,7 @@
                     <TextBlock Text="&#xE946;" FontFamily="Segoe MDL2 Assets" FontSize="14" Foreground="{DynamicResource PrimaryTextBrush}"/>
                 </Button>
                 
-                <Button Style="{StaticResource WindowControlButtonStyle}" Click="OpenUpdates_Click" ToolTip="Check for Updates (v1.3.5 all)" Width="40" Margin="0,0,10,0" WindowChrome.IsHitTestVisibleInChrome="True">
+                <Button Style="{StaticResource WindowControlButtonStyle}" Click="OpenUpdates_Click" ToolTip="Check for Updates (v1.5.0)" Width="40" Margin="0,0,10,0" WindowChrome.IsHitTestVisibleInChrome="True">
                     <TextBlock Text="&#xEBC3;" FontFamily="Segoe MDL2 Assets" FontSize="14" Foreground="{DynamicResource PrimaryTextBrush}"/>
                 </Button>
 
