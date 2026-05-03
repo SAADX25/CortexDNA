@@ -642,12 +642,16 @@
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="*"/>
                                 <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="Auto"/>
                             </Grid.ColumnDefinitions>
                             <StackPanel>
                                 <TextBlock Text="Diagnostic Data" Foreground="{DynamicResource PrimaryTextBrush}" FontSize="14" FontWeight="SemiBold"/>
                                 <TextBlock Text="Allow Microsoft to use Windows diagnostic data" Foreground="{DynamicResource SecondaryTextBrush}" FontSize="12" Margin="0,4,0,0" TextWrapping="Wrap"/>
                             </StackPanel>
-                            <ToggleButton Grid.Column="1" Style="{StaticResource ModernToggleSwitch}" VerticalAlignment="Center" Margin="15,0,0,0" IsChecked="{Binding PrivacyDiagnosticDataEnabled}"/>
+                            <Button Grid.Column="1" Command="{Binding OpenPrivacyRegistryCommand}" CommandParameter="Diagnostic" Style="{StaticResource WindowControlButtonStyle}" ToolTip="Verify in Registry Editor" Margin="0,0,15,0" Width="28" Height="28">
+                                <TextBlock Text="&#xE8A5;" FontFamily="Segoe MDL2 Assets" FontSize="12" Foreground="{DynamicResource AccentBrush}"/>
+                            </Button>
+                            <ToggleButton Grid.Column="2" Style="{StaticResource ModernToggleSwitch}" VerticalAlignment="Center" Margin="0,0,0,0" IsChecked="{Binding PrivacyDiagnosticDataEnabled}"/>
                         </Grid>
 
                         <!-- Toggle 2 -->
@@ -655,12 +659,16 @@
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="*"/>
                                 <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="Auto"/>
                             </Grid.ColumnDefinitions>
                             <StackPanel>
                                 <TextBlock Text="Settings Suggestions" Foreground="{DynamicResource PrimaryTextBrush}" FontSize="14" FontWeight="SemiBold"/>
                                 <TextBlock Text="Allow Windows to show you suggestions in the Settings app" Foreground="{DynamicResource SecondaryTextBrush}" FontSize="12" Margin="0,4,0,0" TextWrapping="Wrap"/>
                             </StackPanel>
-                            <ToggleButton Grid.Column="1" Style="{StaticResource ModernToggleSwitch}" VerticalAlignment="Center" Margin="15,0,0,0" IsChecked="{Binding PrivacySettingsSuggestionsEnabled}"/>
+                            <Button Grid.Column="1" Command="{Binding OpenPrivacyRegistryCommand}" CommandParameter="Settings" Style="{StaticResource WindowControlButtonStyle}" ToolTip="Verify in Registry Editor" Margin="0,0,15,0" Width="28" Height="28">
+                                <TextBlock Text="&#xE8A5;" FontFamily="Segoe MDL2 Assets" FontSize="12" Foreground="{DynamicResource AccentBrush}"/>
+                            </Button>
+                            <ToggleButton Grid.Column="2" Style="{StaticResource ModernToggleSwitch}" VerticalAlignment="Center" Margin="0,0,0,0" IsChecked="{Binding PrivacySettingsSuggestionsEnabled}"/>
                         </Grid>
 
                         <!-- Toggle 3 -->
@@ -668,12 +676,16 @@
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="*"/>
                                 <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="Auto"/>
                             </Grid.ColumnDefinitions>
                             <StackPanel>
                                 <TextBlock Text="Start Menu Web Search" Foreground="{DynamicResource PrimaryTextBrush}" FontSize="14" FontWeight="SemiBold"/>
                                 <TextBlock Text="Allow web search apps to show results in Start Menu or Taskbar Search" Foreground="{DynamicResource SecondaryTextBrush}" FontSize="12" Margin="0,4,0,0" TextWrapping="Wrap"/>
                             </StackPanel>
-                            <ToggleButton Grid.Column="1" Style="{StaticResource ModernToggleSwitch}" VerticalAlignment="Center" Margin="15,0,0,0" IsChecked="{Binding PrivacyWebSearchEnabled}"/>
+                            <Button Grid.Column="1" Command="{Binding OpenPrivacyRegistryCommand}" CommandParameter="Search" Style="{StaticResource WindowControlButtonStyle}" ToolTip="Verify in Registry Editor" Margin="0,0,15,0" Width="28" Height="28">
+                                <TextBlock Text="&#xE8A5;" FontFamily="Segoe MDL2 Assets" FontSize="12" Foreground="{DynamicResource AccentBrush}"/>
+                            </Button>
+                            <ToggleButton Grid.Column="2" Style="{StaticResource ModernToggleSwitch}" VerticalAlignment="Center" Margin="0,0,0,0" IsChecked="{Binding PrivacyWebSearchEnabled}"/>
                         </Grid>
                     </Grid>
                 </StackPanel>
