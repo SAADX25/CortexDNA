@@ -413,9 +413,9 @@
         <!-- 3. System Overview Cards -->
         <Grid Grid.Row="0" Margin="0,0,0,15">
             <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="1.5*"/> <!-- BIOS & Motherboard (Expanded) -->
-                <ColumnDefinition Width="*"/>    <!-- Memory (Balanced) -->
-                <ColumnDefinition Width="0.8*"/> <!-- Network (Compact) -->
+                <ColumnDefinition Width="1.2*"/> <!-- BIOS & Motherboard (Expanded) -->
+                <ColumnDefinition Width="1*"/>    <!-- Memory (Balanced) -->
+                <ColumnDefinition Width="1*"/>    <!-- Network (Balanced) -->
             </Grid.ColumnDefinitions>
 
             <!-- OS & BIOS Card (Redesigned as Windows 11 Device Specs) -->
@@ -478,8 +478,10 @@
                          <ProgressBar Value="{Binding SystemInfo.RamUsagePercent}" Maximum="100" Height="6" Background="{DynamicResource CardBorderBrush}" BorderThickness="0" Foreground="{DynamicResource AccentBrush}"/>
                     </Grid>
                     
-                    <TextBlock Text="{Binding SystemInfo.RamUsageText}" Style="{StaticResource ValueText}" HorizontalAlignment="Center"/>
-                    <TextBlock Text="{Binding SystemInfo.RamInfo}" HorizontalAlignment="Center" Margin="0,5,0,0"/>
+                    <Viewbox Stretch="Uniform" StretchDirection="DownOnly" Margin="0,0,0,5" HorizontalAlignment="Center">
+                        <TextBlock Text="{Binding SystemInfo.RamUsageText}" Style="{StaticResource ValueText}" HorizontalAlignment="Center"/>
+                    </Viewbox>
+                    <TextBlock Text="{Binding SystemInfo.RamInfo}" HorizontalAlignment="Center"/>
                     
                     <!-- Action Buttons -->
                     <Grid Margin="0,15,0,0">
@@ -595,7 +597,7 @@
                         <TextBlock Text="Network" Style="{StaticResource TitleText}" VerticalAlignment="Center"/>
                     </StackPanel>
                     
-                    <Grid Margin="0,5">
+                    <Grid Margin="0,10">
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="Auto"/>
                             <ColumnDefinition Width="*"/>
@@ -605,16 +607,20 @@
                             <RowDefinition Height="Auto"/>
                         </Grid.RowDefinitions>
 
-                        <TextBlock Text="" FontFamily="Segoe MDL2 Assets" Foreground="{DynamicResource SuccessBrush}" Margin="0,0,15,15" VerticalAlignment="Center" FontSize="16"/>
-                        <StackPanel Grid.Column="1" Margin="0,0,0,15">
-                            <TextBlock Text="Download"/>
-                            <TextBlock Text="{Binding SystemInfo.NetworkDownload}" Style="{StaticResource ValueText}"/>
+                        <TextBlock Text="" FontFamily="Segoe MDL2 Assets" Foreground="{DynamicResource SuccessBrush}" Margin="0,0,15,20" VerticalAlignment="Center" FontSize="18"/>
+                        <StackPanel Grid.Column="1" Margin="0,0,0,20">
+                            <TextBlock Text="Download" Foreground="{DynamicResource SecondaryTextBrush}" Margin="0,0,0,2"/>
+                            <Viewbox Stretch="Uniform" StretchDirection="DownOnly" HorizontalAlignment="Left">
+                                <TextBlock Text="{Binding SystemInfo.NetworkDownload}" Style="{StaticResource ValueText}"/>
+                            </Viewbox>
                         </StackPanel>
 
-                        <TextBlock Grid.Row="1" Text="" FontFamily="Segoe MDL2 Assets" Foreground="{DynamicResource ErrorBrush}" Margin="0,0,15,0" VerticalAlignment="Center" FontSize="16"/>
+                        <TextBlock Grid.Row="1" Text="" FontFamily="Segoe MDL2 Assets" Foreground="{DynamicResource ErrorBrush}" Margin="0,0,15,0" VerticalAlignment="Center" FontSize="18"/>
                         <StackPanel Grid.Row="1" Grid.Column="1">
-                            <TextBlock Text="Upload"/>
-                            <TextBlock Text="{Binding SystemInfo.NetworkUpload}" Style="{StaticResource ValueText}"/>
+                            <TextBlock Text="Upload" Foreground="{DynamicResource SecondaryTextBrush}" Margin="0,0,0,2"/>
+                            <Viewbox Stretch="Uniform" StretchDirection="DownOnly" HorizontalAlignment="Left">
+                                <TextBlock Text="{Binding SystemInfo.NetworkUpload}" Style="{StaticResource ValueText}"/>
+                            </Viewbox>
                         </StackPanel>
                     </Grid>
                 </StackPanel>
