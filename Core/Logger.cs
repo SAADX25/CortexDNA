@@ -5,6 +5,7 @@ namespace CortexDNA.Core
 {
     public static class Logger
     {
+        private static readonly object _sync = new();
         private static readonly string LogPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "log.txt");
 
         public static void Log(string message)
@@ -12,17 +13,26 @@ namespace CortexDNA.Core
             try
             {
                 string logEntry = $"[{DateTime.Now:yyyy-MM-dd HH:mm:ss}] {message}{Environment.NewLine}";
-                File.AppendAllText(LogPath, logEntry);
+                lock (_sync)
+                {
+                    File.AppendAllText(LogPath, logEntry);
+                }
             }
             catch
             {
-                // If logging fails, we can't do much, but we shouldn't crash.
+                // Logging must never crash the app
             }
         }
 
-        public static void Log(Exception ex)
+        public static void Log(Exception? ex)
         {
-            Log($"ERROR: {ex.Message}\nStackTrace: {ex.StackTrace}");
+            if (ex == null)
+            {
+                Log("ERROR: (null exception)");
+                return;
+            }
+
+            Log($"ERROR: {ex.Message}{Environment.NewLine}StackTrace: {ex.StackTrace}");
         }
     }
 }

@@ -6,36 +6,35 @@
         xmlns:vm="clr-namespace:CortexDNA.ViewModels"
         xmlns:controls="clr-namespace:CortexDNA.Controls"
         mc:Ignorable="d"
-        Title="Cortex DNA - System Monitor (Developer Edition)" Height="750" Width="1100" MinWidth="1050" MinHeight="750" WindowStartupLocation="CenterScreen"
-        Background="{DynamicResource AppBackgroundBrush}" Foreground="{DynamicResource PrimaryTextBrush}" FontFamily="Segoe UI Variable Display, Segoe UI"
-        WindowStyle="None" AllowsTransparency="True" ResizeMode="CanResizeWithGrip">
-    
+        Title="Cortex DNA"
+        Height="780" Width="1180" MinWidth="1080" MinHeight="720"
+        WindowStartupLocation="CenterScreen"
+        Background="Transparent"
+        Foreground="{DynamicResource PrimaryTextBrush}"
+        FontFamily="Segoe UI Variable Display, Segoe UI"
+        WindowStyle="None" AllowsTransparency="True" ResizeMode="CanResizeWithGrip"
+        PreviewKeyDown="Window_PreviewKeyDown">
+
     <Window.DataContext>
         <vm:MainViewModel />
     </Window.DataContext>
 
+    <Window.InputBindings>
+        <KeyBinding Key="B" Modifiers="Control" Command="{Binding HardwareVM.BoostSystemCommand}"/>
+        <KeyBinding Key="L" Modifiers="Control" Command="{Binding HardwareVM.CleanDiskCommand}"/>
+        <KeyBinding Key="C" Modifiers="Control+Shift" Command="{Binding HardwareVM.CopyAllSpecsCommand}"/>
+        <KeyBinding Key="F5" Command="{Binding HardwareVM.RefreshCommand}"/>
+    </Window.InputBindings>
+
     <Window.Resources>
-        <!-- Theme brushes are populated at runtime by ApplyTheme() in code-behind -->
-        <!-- Placeholder brushes so XAML designer doesn't break -->
-        <SolidColorBrush x:Key="AppBackgroundBrush" Color="#FF121212"/>
-        <SolidColorBrush x:Key="PrimaryTextBrush" Color="#FFFFFFFF"/>
-        <SolidColorBrush x:Key="SecondaryTextBrush" Color="#FFAAAAAA"/>
-        <SolidColorBrush x:Key="CardBackgroundBrush" Color="#FF1E1E2E"/>
-        <SolidColorBrush x:Key="CardBorderBrush" Color="#FF333355"/>
-        <SolidColorBrush x:Key="AccentBrush" Color="#FF7B61FF"/>
-        <!-- Modern Card Style -->
         <Style x:Key="CardStyle" TargetType="Border">
             <Setter Property="Background" Value="{DynamicResource CardBackgroundBrush}"/>
             <Setter Property="BorderBrush" Value="{DynamicResource CardBorderBrush}"/>
             <Setter Property="BorderThickness" Value="1"/>
-            <Setter Property="CornerRadius" Value="12"/>
-            <Setter Property="Margin" Value="15"/>
-            <Setter Property="Padding" Value="30"/>
-            <Setter Property="Effect">
-                <Setter.Value>
-                    <DropShadowEffect Color="#000000" BlurRadius="28" ShadowDepth="6" Opacity="0.55" Direction="270" RenderingBias="Quality"/>
-                </Setter.Value>
-            </Setter>
+            <Setter Property="CornerRadius" Value="14"/>
+            <Setter Property="Margin" Value="0"/>
+            <Setter Property="Padding" Value="20"/>
+            <Setter Property="SnapsToDevicePixels" Value="True"/>
         </Style>
 
         <Style TargetType="TextBlock">
@@ -46,43 +45,105 @@
 
         <Style x:Key="TitleText" TargetType="TextBlock">
             <Setter Property="Foreground" Value="{DynamicResource PrimaryTextBrush}"/>
-            <Setter Property="FontSize" Value="16"/>
+            <Setter Property="FontSize" Value="15"/>
             <Setter Property="FontWeight" Value="SemiBold"/>
         </Style>
 
         <Style x:Key="ValueText" TargetType="TextBlock">
             <Setter Property="Foreground" Value="{DynamicResource PrimaryTextBrush}"/>
-            <Setter Property="FontSize" Value="24"/>
-            <Setter Property="FontWeight" Value="Bold"/>
+            <Setter Property="FontSize" Value="22"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
         </Style>
 
-        <!-- Icon Style (Segoe MDL2 Assets) -->
+        <Style x:Key="CaptionText" TargetType="TextBlock">
+            <Setter Property="Foreground" Value="{DynamicResource MutedTextBrush}"/>
+            <Setter Property="FontSize" Value="11"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+        </Style>
+
         <Style x:Key="IconStyle" TargetType="TextBlock">
             <Setter Property="FontFamily" Value="Segoe MDL2 Assets"/>
-            <Setter Property="FontSize" Value="20"/>
+            <Setter Property="FontSize" Value="16"/>
             <Setter Property="Foreground" Value="{DynamicResource AccentBrush}"/>
             <Setter Property="VerticalAlignment" Value="Center"/>
-            <Setter Property="Margin" Value="0,0,15,0"/>
+            <Setter Property="HorizontalAlignment" Value="Center"/>
         </Style>
-        
-        <!-- Sidebar Button Style -->
-        <Style x:Key="SidebarButtonStyle" TargetType="Button">
+
+        <Style x:Key="IconChipStyle" TargetType="Border">
+            <Setter Property="Width" Value="36"/>
+            <Setter Property="Height" Value="36"/>
+            <Setter Property="CornerRadius" Value="10"/>
+            <Setter Property="Background" Value="{DynamicResource AccentSoftBrush}"/>
+            <Setter Property="VerticalAlignment" Value="Top"/>
+            <Setter Property="Margin" Value="0,0,12,0"/>
+        </Style>
+
+        <Style x:Key="SidebarNavStyle" TargetType="RadioButton">
             <Setter Property="Background" Value="Transparent"/>
             <Setter Property="Foreground" Value="{DynamicResource SecondaryTextBrush}"/>
             <Setter Property="BorderThickness" Value="0"/>
-            <Setter Property="Margin" Value="0,2,0,2"/>
-            <Setter Property="Padding" Value="12,10"/>
+            <Setter Property="Margin" Value="8,1"/>
             <Setter Property="HorizontalContentAlignment" Value="Left"/>
             <Setter Property="FontSize" Value="13"/>
+            <Setter Property="Cursor" Value="Hand"/>
             <Setter Property="Template">
                 <Setter.Value>
-                    <ControlTemplate TargetType="Button">
-                        <Border x:Name="border" Background="{TemplateBinding Background}" CornerRadius="6">
-                            <ContentPresenter HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}" VerticalAlignment="Center" Margin="{TemplateBinding Padding}"/>
+                    <ControlTemplate TargetType="RadioButton">
+                        <Border x:Name="border" Background="{TemplateBinding Background}" CornerRadius="8">
+                            <Grid>
+                                <Border x:Name="accent" Width="3" HorizontalAlignment="Left" CornerRadius="2" Background="Transparent" Margin="0,8" Opacity="0"/>
+                                <ContentPresenter HorizontalAlignment="Left" VerticalAlignment="Center" Margin="14,9,12,9"/>
+                            </Grid>
                         </Border>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsMouseOver" Value="True">
                                 <Setter TargetName="border" Property="Background" Value="{DynamicResource HoverBackgroundBrush}"/>
+                                <Setter TargetName="accent" Property="Background" Value="{DynamicResource AccentBrush}"/>
+                                <Setter TargetName="accent" Property="Opacity" Value="1"/>
+                                <Setter Property="Foreground" Value="{DynamicResource PrimaryTextBrush}"/>
+                            </Trigger>
+                            <Trigger Property="IsChecked" Value="True">
+                                <Setter TargetName="border" Property="Background" Value="{DynamicResource HoverBackgroundBrush}"/>
+                                <Setter TargetName="accent" Property="Background" Value="{DynamicResource AccentBrush}"/>
+                                <Setter TargetName="accent" Property="Opacity" Value="1"/>
+                                <Setter Property="Foreground" Value="{DynamicResource PrimaryTextBrush}"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style x:Key="SidebarSectionStyle" TargetType="TextBlock">
+            <Setter Property="Foreground" Value="{DynamicResource MutedTextBrush}"/>
+            <Setter Property="FontSize" Value="10"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Margin" Value="14,16,12,6"/>
+        </Style>
+
+        <Style x:Key="SidebarButtonStyle" TargetType="Button">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="Foreground" Value="{DynamicResource SecondaryTextBrush}"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Margin" Value="8,1"/>
+            <Setter Property="Padding" Value="0"/>
+            <Setter Property="HorizontalContentAlignment" Value="Left"/>
+            <Setter Property="FontSize" Value="13"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="border" Background="{TemplateBinding Background}" CornerRadius="8">
+                            <Grid>
+                                <Border x:Name="accent" Width="3" HorizontalAlignment="Left" CornerRadius="2" Background="Transparent" Margin="0,8" Opacity="0"/>
+                                <ContentPresenter HorizontalAlignment="Left" VerticalAlignment="Center" Margin="14,9,12,9"/>
+                            </Grid>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="border" Property="Background" Value="{DynamicResource HoverBackgroundBrush}"/>
+                                <Setter TargetName="accent" Property="Background" Value="{DynamicResource AccentBrush}"/>
+                                <Setter TargetName="accent" Property="Opacity" Value="1"/>
                                 <Setter Property="Foreground" Value="{DynamicResource PrimaryTextBrush}"/>
                             </Trigger>
                             <Trigger Property="IsPressed" Value="True">
@@ -94,7 +155,6 @@
             </Setter>
         </Style>
 
-        <!-- Toggle Switch Style (Windows 11 inspired) -->
         <Style x:Key="ModernToggleSwitch" TargetType="ToggleButton">
             <Setter Property="Width" Value="40"/>
             <Setter Property="Height" Value="20"/>
@@ -137,56 +197,25 @@
                                     </BeginStoryboard>
                                 </Trigger.ExitActions>
                             </Trigger>
-                            <Trigger Property="IsChecked" Value="False">
-                                <Setter TargetName="Thumb" Property="RenderTransform">
-                                    <Setter.Value>
-                                        <TranslateTransform X="0"/>
-                                    </Setter.Value>
-                                </Setter>
-                            </Trigger>
                         </ControlTemplate.Triggers>
                     </ControlTemplate>
                 </Setter.Value>
             </Setter>
         </Style>
 
-        <!-- Custom ScrollBar Style -->
-        <Style TargetType="ScrollBar">
-            <Setter Property="Background" Value="Transparent"/>
-            <Setter Property="Width" Value="8"/>
-            <Setter Property="Template">
-                <Setter.Value>
-                    <ControlTemplate TargetType="ScrollBar">
-                        <Grid x:Name="GridRoot" Width="8" Background="Transparent">
-                            <Track x:Name="PART_Track" IsDirectionReversed="true" Focusable="false">
-                                <Track.Thumb>
-                                    <Thumb>
-                                        <Thumb.Template>
-                                            <ControlTemplate TargetType="Thumb">
-                                                <Border Background="{DynamicResource AccentBrush}" CornerRadius="8" Margin="1,0"/>
-                                            </ControlTemplate>
-                                        </Thumb.Template>
-                                    </Thumb>
-                                </Track.Thumb>
-                            </Track>
-                        </Grid>
-                    </ControlTemplate>
-                </Setter.Value>
-            </Setter>
-        </Style>
-        <!-- Window Control Button Style -->
         <Style x:Key="WindowControlButtonStyle" TargetType="Button">
             <Setter Property="Background" Value="Transparent"/>
             <Setter Property="Foreground" Value="{DynamicResource SecondaryTextBrush}"/>
-            <Setter Property="Width" Value="46"/>
+            <Setter Property="Width" Value="40"/>
             <Setter Property="Height" Value="32"/>
             <Setter Property="BorderThickness" Value="0"/>
             <Setter Property="FontFamily" Value="Segoe MDL2 Assets"/>
             <Setter Property="FontSize" Value="10"/>
+            <Setter Property="Cursor" Value="Hand"/>
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="Button">
-                        <Border x:Name="border" Background="{TemplateBinding Background}">
+                        <Border x:Name="border" Background="{TemplateBinding Background}" CornerRadius="6" Margin="2">
                             <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
                         </Border>
                         <ControlTemplate.Triggers>
@@ -203,29 +232,20 @@
             </Setter>
         </Style>
 
-                <Style x:Key="CloseButtonStyle" TargetType="Button" BasedOn="{StaticResource WindowControlButtonStyle}">
+        <Style x:Key="CloseButtonStyle" TargetType="Button" BasedOn="{StaticResource WindowControlButtonStyle}">
             <Style.Triggers>
                 <Trigger Property="IsMouseOver" Value="True">
                     <Setter Property="Background" Value="{DynamicResource ErrorBrush}"/>
-                    <Setter Property="Foreground" Value="{DynamicResource PrimaryTextBrush}"/>
-                </Trigger>
-                <Trigger Property="IsPressed" Value="True">
-                    <Setter Property="Background" Value="{DynamicResource ErrorBrush}"/>
+                    <Setter Property="Foreground" Value="White"/>
                 </Trigger>
             </Style.Triggers>
         </Style>
 
-        <!-- ══ Dark ContextMenu Style ══════════════════════════════════════ -->
         <Style TargetType="ContextMenu">
-            <Setter Property="Background" Value="#FF1C1C1C"/>
-            <Setter Property="BorderBrush" Value="#FF2B2B2B"/>
+            <Setter Property="Background" Value="{DynamicResource SurfaceBrush}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource CardBorderBrush}"/>
             <Setter Property="BorderThickness" Value="1"/>
-            <Setter Property="Padding" Value="4"/>
-            <Setter Property="Effect">
-                <Setter.Value>
-                    <DropShadowEffect Color="Black" BlurRadius="20" ShadowDepth="4" Opacity="0.6" Direction="270"/>
-                </Setter.Value>
-            </Setter>
+            <Setter Property="Padding" Value="6"/>
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="ContextMenu">
@@ -234,9 +254,6 @@
                                 BorderThickness="{TemplateBinding BorderThickness}"
                                 CornerRadius="10"
                                 Padding="{TemplateBinding Padding}">
-                            <Border.Effect>
-                                <DropShadowEffect Color="Black" BlurRadius="20" ShadowDepth="4" Opacity="0.6" Direction="270"/>
-                            </Border.Effect>
                             <ItemsPresenter/>
                         </Border>
                     </ControlTemplate>
@@ -245,7 +262,7 @@
         </Style>
 
         <Style TargetType="MenuItem">
-            <Setter Property="Foreground" Value="#FFDDDDEE"/>
+            <Setter Property="Foreground" Value="{DynamicResource PrimaryTextBrush}"/>
             <Setter Property="Background" Value="Transparent"/>
             <Setter Property="FontFamily" Value="Segoe UI Variable Display, Segoe UI"/>
             <Setter Property="FontSize" Value="13"/>
@@ -267,15 +284,15 @@
                                                   Margin="{TemplateBinding Padding}"
                                                   TextElement.Foreground="{TemplateBinding Foreground}"/>
                                 <TextBlock Grid.Column="2" Text="{TemplateBinding InputGestureText}" Margin="8,0" VerticalAlignment="Center"
-                                           Foreground="#FF666688" FontSize="11"/>
+                                           Foreground="{DynamicResource MutedTextBrush}" FontSize="11"/>
                             </Grid>
                         </Border>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsHighlighted" Value="True">
-                                <Setter TargetName="border" Property="Background" Value="#FF2A2A2A"/>
+                                <Setter TargetName="border" Property="Background" Value="{DynamicResource HoverBackgroundBrush}"/>
                             </Trigger>
                             <Trigger Property="IsEnabled" Value="False">
-                                <Setter Property="Foreground" Value="#FF666666"/>
+                                <Setter Property="Foreground" Value="{DynamicResource MutedTextBrush}"/>
                             </Trigger>
                         </ControlTemplate.Triggers>
                     </ControlTemplate>
@@ -284,29 +301,22 @@
         </Style>
 
         <Style TargetType="Separator">
-            <Setter Property="Background" Value="#FF2B2B2B"/>
+            <Setter Property="Background" Value="{DynamicResource CardBorderBrush}"/>
             <Setter Property="Height" Value="1"/>
             <Setter Property="Margin" Value="8,4"/>
         </Style>
 
-        <!-- ══ Modern Slider Style ══════════════════════════════════════════ -->
         <Style x:Key="ModernSliderStyle" TargetType="Slider">
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="Slider">
                         <Grid>
-                            <Grid.RowDefinitions>
-                                <RowDefinition Height="Auto"/>
-                                <RowDefinition Height="Auto" MinHeight="{TemplateBinding MinHeight}"/>
-                                <RowDefinition Height="Auto"/>
-                            </Grid.RowDefinitions>
-                            <Track x:Name="PART_Track" Grid.Row="1">
+                            <Track x:Name="PART_Track">
                                 <Track.DecreaseRepeatButton>
                                     <RepeatButton Command="Slider.DecreaseLarge">
                                         <RepeatButton.Template>
                                             <ControlTemplate TargetType="RepeatButton">
-                                                <!-- Filled / left portion -->
-                                                <Border Height="4" CornerRadius="2" Background="#FF00D4FF"/>
+                                                <Border Height="4" CornerRadius="2" Background="{DynamicResource AccentBrush}"/>
                                             </ControlTemplate>
                                         </RepeatButton.Template>
                                     </RepeatButton>
@@ -315,12 +325,7 @@
                                     <Thumb>
                                         <Thumb.Template>
                                             <ControlTemplate TargetType="Thumb">
-                                                <Ellipse x:Name="thumb" Width="14" Height="14"
-                                                         Fill="#FF00D4FF">
-                                                    <Ellipse.Effect>
-                                                        <DropShadowEffect Color="#00D4FF" BlurRadius="10" ShadowDepth="0" Opacity="0.8"/>
-                                                    </Ellipse.Effect>
-                                                </Ellipse>
+                                                <Ellipse x:Name="thumb" Width="14" Height="14" Fill="{DynamicResource AccentBrush}"/>
                                                 <ControlTemplate.Triggers>
                                                     <Trigger Property="IsMouseOver" Value="True">
                                                         <Setter TargetName="thumb" Property="Width" Value="16"/>
@@ -335,8 +340,7 @@
                                     <RepeatButton Command="Slider.IncreaseLarge">
                                         <RepeatButton.Template>
                                             <ControlTemplate TargetType="RepeatButton">
-                                                <!-- Unfilled / right portion -->
-                                                <Border Height="4" CornerRadius="2" Background="#FF2B2B2B"/>
+                                                <Border Height="4" CornerRadius="2" Background="{DynamicResource CardBorderBrush}"/>
                                             </ControlTemplate>
                                         </RepeatButton.Template>
                                     </RepeatButton>
@@ -347,201 +351,276 @@
                 </Setter.Value>
             </Setter>
         </Style>
-
     </Window.Resources>
 
     <WindowChrome.WindowChrome>
-        <WindowChrome CaptionHeight="40" ResizeBorderThickness="5" GlassFrameThickness="1" CornerRadius="0"/>
+        <WindowChrome CaptionHeight="52" ResizeBorderThickness="6" GlassFrameThickness="0" CornerRadius="0"/>
     </WindowChrome.WindowChrome>
 
-    <Grid>
-        <Grid.RowDefinitions>
-            <RowDefinition Height="40"/> <!-- Title Bar -->
-            <RowDefinition Height="*"/>  <!-- Main Content -->
-        </Grid.RowDefinitions>
+    <Border x:Name="RootChrome"
+            Background="{DynamicResource AppBackgroundBrush}"
+            BorderBrush="{DynamicResource CardBorderBrush}"
+            BorderThickness="1"
+            CornerRadius="14"
+            Margin="8"
+            ClipToBounds="True">
 
-        <!-- Custom Title Bar -->
-        <Grid Grid.Row="0" Background="{DynamicResource CardBackgroundBrush}">
-            <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="Auto"/>
-                <ColumnDefinition Width="*"/>
-                <ColumnDefinition Width="Auto"/>
-            </Grid.ColumnDefinitions>
+        <Grid>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="52"/>
+                <RowDefinition Height="*"/>
+            </Grid.RowDefinitions>
 
-            <!-- Left: Title & Badge -->
-            <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center" Margin="15,0,0,0">
-                <TextBlock Text="" FontFamily="Segoe MDL2 Assets" FontSize="18" Foreground="{DynamicResource AccentBrush}" Margin="0,0,10,0" VerticalAlignment="Center"/>
-                <TextBlock Text="Cortex DNA" FontSize="16" FontWeight="SemiBold" Foreground="{DynamicResource PrimaryTextBrush}" VerticalAlignment="Center"/>
-                <Border Background="{DynamicResource BadgeBackgroundBrush}" CornerRadius="8" Margin="10,0,0,0" Padding="8,2" VerticalAlignment="Center">
-                    <TextBlock Text="Developer Edition" FontSize="11" Foreground="{DynamicResource AccentBrush}" VerticalAlignment="Center"/>
-                </Border>
-            </StackPanel>
-
-            <!-- Middle: Draggable area (isolated) -->
-            <Border Grid.Column="1" Background="Transparent" MouseLeftButtonDown="TitleBar_MouseDown" Cursor="SizeAll"/>
-
-            <!-- Right: Window Controls -->
-            <StackPanel Grid.Column="2" Orientation="Horizontal" WindowChrome.IsHitTestVisibleInChrome="True">
-                <!-- Settings Button (Gear) -->
-                <Button Style="{StaticResource WindowControlButtonStyle}" Click="OpenSettings_Click" ToolTip="Settings" Width="40" Margin="0,0,5,0" WindowChrome.IsHitTestVisibleInChrome="True">
-                    <TextBlock Text="&#xE713;" FontFamily="Segoe MDL2 Assets" FontSize="14" Foreground="{DynamicResource PrimaryTextBrush}"/>
-                    <Button.ContextMenu>
-                        <ContextMenu>
-                            <MenuItem Header="Background Opacity" IsEnabled="False"/>
-                            <MenuItem>
-                                <MenuItem.Header>
-                                    <Slider x:Name="OpacitySlider" Style="{StaticResource ModernSliderStyle}" Width="150" Minimum="50" Maximum="100" Value="100" SmallChange="1" LargeChange="5" ValueChanged="OpacitySlider_ValueChanged"/>
-                                </MenuItem.Header>
-                            </MenuItem>
-                        </ContextMenu>
-                    </Button.ContextMenu>
-                </Button>
-
-                <Button Style="{StaticResource WindowControlButtonStyle}" Click="OpenAbout_Click" ToolTip="About" Width="40" Margin="0,0,5,0" WindowChrome.IsHitTestVisibleInChrome="True">
-                    <TextBlock Text="&#xE946;" FontFamily="Segoe MDL2 Assets" FontSize="14" Foreground="{DynamicResource PrimaryTextBrush}"/>
-                </Button>
-                
-                <Button Style="{StaticResource WindowControlButtonStyle}" Click="OpenUpdates_Click" ToolTip="Check for Updates (v1.5.0)" Width="40" Margin="0,0,10,0" WindowChrome.IsHitTestVisibleInChrome="True">
-                    <TextBlock Text="&#xEBC3;" FontFamily="Segoe MDL2 Assets" FontSize="14" Foreground="{DynamicResource PrimaryTextBrush}"/>
-                </Button>
-
-                <!-- Theme Control -->
-                <Button Style="{StaticResource WindowControlButtonStyle}" Click="ThemeButton_Click" ToolTip="Toggle Theme" Width="40" Margin="0,0,10,0" WindowChrome.IsHitTestVisibleInChrome="True">
-                    <TextBlock Text="&#xE706;" FontFamily="Segoe MDL2 Assets" FontSize="14" Foreground="{DynamicResource PrimaryTextBrush}"/>
-                </Button>
-
-
-                
-                <Button Content="&#xE921;" Style="{StaticResource WindowControlButtonStyle}" Click="BtnMinimize_Click" WindowChrome.IsHitTestVisibleInChrome="True"/>
-                <Button Content="&#xE922;" Style="{StaticResource WindowControlButtonStyle}" Click="BtnMaximize_Click" WindowChrome.IsHitTestVisibleInChrome="True"/>
-                <Button Content="&#xE8BB;" Style="{StaticResource CloseButtonStyle}" Click="BtnClose_Click" WindowChrome.IsHitTestVisibleInChrome="True"/>
-            </StackPanel>
-        </Grid>
-
-        <!-- Main Content Area with Sidebar -->
-        <Grid Grid.Row="1">
-            <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="220" x:Name="SidebarColumn"/> <!-- Sidebar -->
-                <ColumnDefinition Width="*"/> <!-- Main Content -->
-            </Grid.ColumnDefinitions>
-
-            <!-- Sidebar -->
-            <Border Grid.Column="0" Background="{DynamicResource CardBackgroundBrush}" BorderBrush="{DynamicResource CardBorderBrush}" BorderThickness="0,0,1,0">
+            <!-- Title bar -->
+            <Border Grid.Row="0" Background="{DynamicResource SurfaceBrush}" BorderBrush="{DynamicResource CardBorderBrush}" BorderThickness="0,0,0,1">
                 <Grid>
-                    <Grid.RowDefinitions>
-                        <RowDefinition Height="Auto"/>
-                        <RowDefinition Height="*"/>
-                        <RowDefinition Height="Auto"/>
-                    </Grid.RowDefinitions>
-                    
-                    <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="15,20,15,10">
-                        <TextBlock Text="&#xE700;" FontFamily="Segoe MDL2 Assets" FontSize="16" Foreground="{DynamicResource AccentBrush}" VerticalAlignment="Center" Margin="0,0,10,0"/>
-                        <TextBlock Text="Utilities" FontSize="14" FontWeight="SemiBold" Foreground="{DynamicResource PrimaryTextBrush}" VerticalAlignment="Center"/>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+
+                    <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center" Margin="16,0,0,0">
+                        <Border Width="28" Height="28" CornerRadius="8" Background="{DynamicResource AccentSoftBrush}" Margin="0,0,10,0">
+                            <TextBlock Text="&#xE9F9;" FontFamily="Segoe MDL2 Assets" FontSize="14" Foreground="{DynamicResource AccentBrush}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <TextBlock Text="Cortex DNA" FontSize="15" FontWeight="SemiBold" Foreground="{DynamicResource PrimaryTextBrush}" VerticalAlignment="Center"/>
+                        <Border Background="{DynamicResource BadgeBackgroundBrush}" CornerRadius="8" Margin="10,0,0,0" Padding="8,3" VerticalAlignment="Center">
+                            <TextBlock Text="Studio" FontSize="10" FontWeight="SemiBold" Foreground="{DynamicResource AccentBrush}"/>
+                        </Border>
                     </StackPanel>
 
-                    <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Margin="0,10,0,0">
-                        <StackPanel x:Name="UtilitiesWrapPanel" Margin="10,0">
-                            <Button Style="{StaticResource SidebarButtonStyle}" Click="Button_MsInfo_Click" ToolTip="System Info">
-                                <StackPanel Orientation="Horizontal">
-                                    <TextBlock Text="&#xE946;" FontFamily="Segoe MDL2 Assets" Width="30" FontSize="16"/>
-                                    <TextBlock Text="System Info" VerticalAlignment="Center"/>
-                                </StackPanel>
-                            </Button>
-                            <Button Style="{StaticResource SidebarButtonStyle}" Click="Button_TaskManager_Click" ToolTip="Task Manager">
-                                <StackPanel Orientation="Horizontal">
-                                    <TextBlock Text="&#xE90C;" FontFamily="Segoe MDL2 Assets" Width="30" FontSize="16"/>
-                                    <TextBlock Text="Task Manager" VerticalAlignment="Center"/>
-                                </StackPanel>
-                            </Button>
-                            <Button Style="{StaticResource SidebarButtonStyle}" Click="Button_DeviceManager_Click" ToolTip="Device Manager">
-                                <StackPanel Orientation="Horizontal">
-                                    <TextBlock Text="&#xE7F4;" FontFamily="Segoe MDL2 Assets" Width="30" FontSize="16"/>
-                                    <TextBlock Text="Device Manager" VerticalAlignment="Center"/>
-                                </StackPanel>
-                            </Button>
-                            <Button Style="{StaticResource SidebarButtonStyle}" Click="Button_RegEdit_Click" ToolTip="Registry Editor">
-                                <StackPanel Orientation="Horizontal">
-                                    <TextBlock Text="&#xE8A5;" FontFamily="Segoe MDL2 Assets" Width="30" FontSize="16"/>
-                                    <TextBlock Text="Registry Editor" VerticalAlignment="Center"/>
-                                </StackPanel>
-                            </Button>
-                            <Button Style="{StaticResource SidebarButtonStyle}" Click="Button_Services_Click" ToolTip="Windows Services">
-                                <StackPanel Orientation="Horizontal">
-                                    <TextBlock Text="&#xE713;" FontFamily="Segoe MDL2 Assets" Width="30" FontSize="16"/>
-                                    <TextBlock Text="Windows Services" VerticalAlignment="Center"/>
-                                </StackPanel>
-                            </Button>
-                            <Button Style="{StaticResource SidebarButtonStyle}" Click="Button_Network_Click" ToolTip="Network Connections">
-                                <StackPanel Orientation="Horizontal">
-                                    <TextBlock Text="&#xE704;" FontFamily="Segoe MDL2 Assets" Width="30" FontSize="16"/>
-                                    <TextBlock Text="Network" VerticalAlignment="Center"/>
-                                </StackPanel>
-                            </Button>
-                            <Button Style="{StaticResource SidebarButtonStyle}" Click="Button_Cmd_Click" ToolTip="CMD (Admin)">
-                                <StackPanel Orientation="Horizontal">
-                                    <TextBlock Text="&#xE120;" FontFamily="Segoe MDL2 Assets" Width="30" FontSize="16"/>
-                                    <TextBlock Text="Command Prompt" VerticalAlignment="Center"/>
-                                </StackPanel>
-                            </Button>
-                            <Button Style="{StaticResource SidebarButtonStyle}" Click="Button_PowerShell_Click" ToolTip="PowerShell (Admin)">
-                                <StackPanel Orientation="Horizontal">
-                                    <TextBlock Text="&#xE756;" FontFamily="Segoe MDL2 Assets" Width="30" FontSize="16"/>
-                                    <TextBlock Text="PowerShell" VerticalAlignment="Center"/>
-                                </StackPanel>
-                            </Button>
-                            <Button Style="{StaticResource SidebarButtonStyle}" Click="Button_EventViewer_Click" ToolTip="Event Viewer">
-                                <StackPanel Orientation="Horizontal">
-                                    <TextBlock Text="&#xE7BA;" FontFamily="Segoe MDL2 Assets" Width="30" FontSize="16"/>
-                                    <TextBlock Text="Event Viewer" VerticalAlignment="Center"/>
-                                </StackPanel>
-                            </Button>
-                            <Button Style="{StaticResource SidebarButtonStyle}" Click="Button_ControlPanel_Click" ToolTip="Control Panel">
-                                <StackPanel Orientation="Horizontal">
-                                    <TextBlock Text="&#xE72D;" FontFamily="Segoe MDL2 Assets" Width="30" FontSize="16"/>
-                                    <TextBlock Text="Control Panel" VerticalAlignment="Center"/>
-                                </StackPanel>
-                            </Button>
-                            <Button Style="{StaticResource SidebarButtonStyle}" Click="Button_ResMon_Click" ToolTip="Resource Monitor">
-                                <StackPanel Orientation="Horizontal">
-                                    <TextBlock Text="&#xE9D2;" FontFamily="Segoe MDL2 Assets" Width="30" FontSize="16"/>
-                                    <TextBlock Text="Resource Monitor" VerticalAlignment="Center"/>
-                                </StackPanel>
-                            </Button>
-                        </StackPanel>
-                    </ScrollViewer>
+                    <Border Grid.Column="1" Background="Transparent" MouseLeftButtonDown="TitleBar_MouseDown"/>
+
+                    <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center" WindowChrome.IsHitTestVisibleInChrome="True" Margin="0,0,6,0">
+                        <Button Style="{StaticResource WindowControlButtonStyle}" Click="OpenSettings_Click" ToolTip="Appearance" WindowChrome.IsHitTestVisibleInChrome="True">
+                            <TextBlock Text="&#xE713;" FontFamily="Segoe MDL2 Assets" FontSize="13" Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"/>
+                            <Button.ContextMenu>
+                                <ContextMenu>
+                                    <MenuItem Header="Window opacity" IsEnabled="False"/>
+                                    <MenuItem>
+                                        <MenuItem.Header>
+                                            <Slider x:Name="OpacitySlider" Style="{StaticResource ModernSliderStyle}" Width="150" Minimum="20" Maximum="100" Value="100" SmallChange="1" LargeChange="5" ValueChanged="OpacitySlider_ValueChanged"/>
+                                        </MenuItem.Header>
+                                    </MenuItem>
+                                </ContextMenu>
+                            </Button.ContextMenu>
+                        </Button>
+                        <Button Style="{StaticResource WindowControlButtonStyle}" Click="OpenAbout_Click" ToolTip="About" WindowChrome.IsHitTestVisibleInChrome="True">
+                            <TextBlock Text="&#xE946;" FontFamily="Segoe MDL2 Assets" FontSize="13" Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"/>
+                        </Button>
+                        <Button Style="{StaticResource WindowControlButtonStyle}" Click="OpenUpdates_Click" ToolTip="Check for updates" WindowChrome.IsHitTestVisibleInChrome="True">
+                            <TextBlock Text="&#xE895;" FontFamily="Segoe MDL2 Assets" FontSize="13" Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"/>
+                        </Button>
+                        <Button Style="{StaticResource WindowControlButtonStyle}" Click="ThemeButton_Click" ToolTip="Toggle theme" WindowChrome.IsHitTestVisibleInChrome="True">
+                            <TextBlock Text="&#xE706;" FontFamily="Segoe MDL2 Assets" FontSize="13" Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"/>
+                        </Button>
+                        <Border Width="1" Height="16" Background="{DynamicResource CardBorderBrush}" Margin="6,0"/>
+                        <Button Content="&#xE921;" Style="{StaticResource WindowControlButtonStyle}" Click="BtnMinimize_Click" WindowChrome.IsHitTestVisibleInChrome="True"/>
+                        <Button Content="&#xE922;" Style="{StaticResource WindowControlButtonStyle}" Click="BtnMaximize_Click" WindowChrome.IsHitTestVisibleInChrome="True"/>
+                        <Button Content="&#xE8BB;" Style="{StaticResource CloseButtonStyle}" Click="BtnClose_Click" WindowChrome.IsHitTestVisibleInChrome="True"/>
+                    </StackPanel>
                 </Grid>
             </Border>
 
-            <!-- Main Content Area -->
-            <ScrollViewer Grid.Column="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
-            <Grid Margin="15">
-                <Grid.RowDefinitions>
-                    <RowDefinition Height="Auto"/> <!-- Hardware Dashboard -->
-                    <RowDefinition Height="Auto"/> <!-- Windows Privacy -->
-                    <RowDefinition Height="Auto"/> <!-- Status Bar -->
-                </Grid.RowDefinitions>
+            <Grid Grid.Row="1">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="228" x:Name="SidebarColumn"/>
+                    <ColumnDefinition Width="*"/>
+                </Grid.ColumnDefinitions>
 
-            <!-- 1. Hardware Dashboard -->
-            <controls:HardwareDashboardControl DataContext="{Binding HardwareVM}" Grid.Row="0" Margin="0,0,0,15" />
+                <!-- Sidebar -->
+                <Border Grid.Column="0" Background="{DynamicResource SurfaceBrush}" BorderBrush="{DynamicResource CardBorderBrush}" BorderThickness="0,0,1,0">
+                    <Grid>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="*"/>
+                        </Grid.RowDefinitions>
 
-            <!-- 2. Windows Privacy Cards -->
-            <controls:PrivacySettingsControl DataContext="{Binding PrivacyVM}" Grid.Row="1" Margin="0,0,0,15" />
+                        <StackPanel Grid.Row="0" Margin="16,18,16,8">
+                            <TextBlock Text="WORKSPACE" Style="{StaticResource CaptionText}"/>
+                            <TextBlock Text="System utilities" FontSize="13" Foreground="{DynamicResource PrimaryTextBrush}" Margin="0,4,0,10"/>
 
+                            <TextBlock Text="CORTEX" Style="{StaticResource SidebarSectionStyle}" Margin="6,0,0,6"/>
+                            <RadioButton Style="{StaticResource SidebarNavStyle}" GroupName="CortexNav"
+                                         IsChecked="{Binding IsOverviewSelected, Mode=OneWay}"
+                                         Command="{Binding NavigateCommand}" CommandParameter="Overview"
+                                         Click="NavOverview_Click">
+                                <StackPanel Orientation="Horizontal">
+                                    <TextBlock Text="&#xE80F;" FontFamily="Segoe MDL2 Assets" Width="22" FontSize="14"/>
+                                    <TextBlock Text="Overview" VerticalAlignment="Center"/>
+                                </StackPanel>
+                            </RadioButton>
+                            <RadioButton Style="{StaticResource SidebarNavStyle}" GroupName="CortexNav"
+                                         IsChecked="{Binding IsStartupSelected, Mode=OneWay}"
+                                         Command="{Binding NavigateCommand}" CommandParameter="Startup"
+                                         Click="NavStartup_Click">
+                                <StackPanel Orientation="Horizontal">
+                                    <TextBlock Text="&#xE7B5;" FontFamily="Segoe MDL2 Assets" Width="22" FontSize="14"/>
+                                    <TextBlock Text="Startup Impact" VerticalAlignment="Center"/>
+                                </StackPanel>
+                            </RadioButton>
 
-        <!-- Status Bar -->
-        <StatusBar Grid.Row="2" Background="Transparent" Foreground="{DynamicResource SecondaryTextBrush}" Margin="0,10,0,0">
-            <StatusBarItem>
-                <TextBlock Text="{Binding HardwareVM.StatusMessage}"/>
-            </StatusBarItem>
-        </StatusBar>
-    </Grid>
-    </ScrollViewer>
-</Grid>
-</Grid>
+                            <Border Background="{DynamicResource CardBackgroundBrush}" BorderBrush="{DynamicResource CardBorderBrush}" BorderThickness="1" CornerRadius="8" Padding="8,6" Margin="0,12,0,0">
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto"/>
+                                        <ColumnDefinition Width="*"/>
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Text="&#xE721;" FontFamily="Segoe MDL2 Assets" FontSize="12" Foreground="{DynamicResource MutedTextBrush}" VerticalAlignment="Center" Margin="2,0,8,0"/>
+                                    <TextBlock x:Name="SearchPlaceholder" Grid.Column="1" Text="Search tools" Foreground="{DynamicResource MutedTextBrush}" VerticalAlignment="Center" IsHitTestVisible="False"/>
+                                    <TextBox x:Name="UtilitySearchBox" Grid.Column="1"
+                                             Background="Transparent" BorderThickness="0"
+                                             Foreground="{DynamicResource PrimaryTextBrush}"
+                                             CaretBrush="{DynamicResource AccentBrush}"
+                                             FontSize="12"
+                                             TextChanged="UtilitySearchBox_TextChanged"/>
+                                </Grid>
+                            </Border>
+                        </StackPanel>
+
+                        <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Hidden" HorizontalScrollBarVisibility="Disabled" PanningMode="VerticalOnly">
+                            <StackPanel x:Name="UtilitiesWrapPanel" Margin="0,0,0,16">
+                                <TextBlock Text="DIAGNOSTICS" Style="{StaticResource SidebarSectionStyle}"/>
+                                <Button Style="{StaticResource SidebarButtonStyle}" Click="Button_MsInfo_Click" ToolTip="System Information" Tag="system info msinfo diagnostics">
+                                    <StackPanel Orientation="Horizontal">
+                                        <TextBlock Text="&#xE946;" FontFamily="Segoe MDL2 Assets" Width="22" FontSize="14"/>
+                                        <TextBlock Text="System Info" VerticalAlignment="Center"/>
+                                    </StackPanel>
+                                </Button>
+                                <Button Style="{StaticResource SidebarButtonStyle}" Click="Button_TaskManager_Click" ToolTip="Task Manager" Tag="task manager taskmgr processes">
+                                    <StackPanel Orientation="Horizontal">
+                                        <TextBlock Text="&#xE90C;" FontFamily="Segoe MDL2 Assets" Width="22" FontSize="14"/>
+                                        <TextBlock Text="Task Manager" VerticalAlignment="Center"/>
+                                    </StackPanel>
+                                </Button>
+                                <Button Style="{StaticResource SidebarButtonStyle}" Click="Button_ResMon_Click" ToolTip="Resource Monitor" Tag="resource monitor resmon cpu disk">
+                                    <StackPanel Orientation="Horizontal">
+                                        <TextBlock Text="&#xE9D2;" FontFamily="Segoe MDL2 Assets" Width="22" FontSize="14"/>
+                                        <TextBlock Text="Resource Monitor" VerticalAlignment="Center"/>
+                                    </StackPanel>
+                                </Button>
+                                <Button Style="{StaticResource SidebarButtonStyle}" Click="Button_DeviceManager_Click" ToolTip="Device Manager" Tag="device manager hardware drivers">
+                                    <StackPanel Orientation="Horizontal">
+                                        <TextBlock Text="&#xE7F4;" FontFamily="Segoe MDL2 Assets" Width="22" FontSize="14"/>
+                                        <TextBlock Text="Device Manager" VerticalAlignment="Center"/>
+                                    </StackPanel>
+                                </Button>
+
+                                <TextBlock Text="SYSTEM" Style="{StaticResource SidebarSectionStyle}"/>
+                                <Button Style="{StaticResource SidebarButtonStyle}" Click="Button_RegEdit_Click" ToolTip="Registry Editor" Tag="registry editor regedit">
+                                    <StackPanel Orientation="Horizontal">
+                                        <TextBlock Text="&#xE8A5;" FontFamily="Segoe MDL2 Assets" Width="22" FontSize="14"/>
+                                        <TextBlock Text="Registry Editor" VerticalAlignment="Center"/>
+                                    </StackPanel>
+                                </Button>
+                                <Button Style="{StaticResource SidebarButtonStyle}" Click="Button_Services_Click" ToolTip="Windows Services" Tag="services windows">
+                                    <StackPanel Orientation="Horizontal">
+                                        <TextBlock Text="&#xEA37;" FontFamily="Segoe MDL2 Assets" Width="22" FontSize="14"/>
+                                        <TextBlock Text="Services" VerticalAlignment="Center"/>
+                                    </StackPanel>
+                                </Button>
+                                <Button Style="{StaticResource SidebarButtonStyle}" Click="Button_EventViewer_Click" ToolTip="Event Viewer" Tag="event viewer logs">
+                                    <StackPanel Orientation="Horizontal">
+                                        <TextBlock Text="&#xE7BA;" FontFamily="Segoe MDL2 Assets" Width="22" FontSize="14"/>
+                                        <TextBlock Text="Event Viewer" VerticalAlignment="Center"/>
+                                    </StackPanel>
+                                </Button>
+                                <Button Style="{StaticResource SidebarButtonStyle}" Click="Button_ControlPanel_Click" ToolTip="Control Panel" Tag="control panel settings">
+                                    <StackPanel Orientation="Horizontal">
+                                        <TextBlock Text="&#xE713;" FontFamily="Segoe MDL2 Assets" Width="22" FontSize="14"/>
+                                        <TextBlock Text="Control Panel" VerticalAlignment="Center"/>
+                                    </StackPanel>
+                                </Button>
+
+                                <TextBlock Text="SHELL" Style="{StaticResource SidebarSectionStyle}"/>
+                                <Button Style="{StaticResource SidebarButtonStyle}" Click="Button_Network_Click" ToolTip="Network Connections" Tag="network connections ncpa adapter">
+                                    <StackPanel Orientation="Horizontal">
+                                        <TextBlock Text="&#xE704;" FontFamily="Segoe MDL2 Assets" Width="22" FontSize="14"/>
+                                        <TextBlock Text="Network" VerticalAlignment="Center"/>
+                                    </StackPanel>
+                                </Button>
+                                <Button Style="{StaticResource SidebarButtonStyle}" Click="Button_Cmd_Click" ToolTip="Command Prompt (Admin)" Tag="command prompt cmd terminal shell">
+                                    <StackPanel Orientation="Horizontal">
+                                        <TextBlock Text="&#xE756;" FontFamily="Segoe MDL2 Assets" Width="22" FontSize="14"/>
+                                        <TextBlock Text="Command Prompt" VerticalAlignment="Center"/>
+                                    </StackPanel>
+                                </Button>
+                                <Button Style="{StaticResource SidebarButtonStyle}" Click="Button_PowerShell_Click" ToolTip="PowerShell (Admin)" Tag="powershell pwsh terminal shell">
+                                    <StackPanel Orientation="Horizontal">
+                                        <TextBlock Text="&#xE756;" FontFamily="Segoe MDL2 Assets" Width="22" FontSize="14"/>
+                                        <TextBlock Text="PowerShell" VerticalAlignment="Center"/>
+                                    </StackPanel>
+                                </Button>
+                                <TextBlock x:Name="NoToolsText" Text="No matching tools" Foreground="{DynamicResource MutedTextBrush}" FontSize="12" Margin="14,12,12,0" Visibility="Collapsed"/>
+                            </StackPanel>
+                        </ScrollViewer>
+                    </Grid>
+                </Border>
+
+                <!-- Main -->
+                <Grid Grid.Column="1" Background="{DynamicResource AppBackgroundBrush}">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="*"/>
+                        <RowDefinition Height="Auto"/>
+                    </Grid.RowDefinitions>
+
+                    <Grid Grid.Row="0" ClipToBounds="True">
+                        <Border Background="{DynamicResource AppBackgroundBrush}"/>
+                        <Grid x:Name="SectionStage"/>
+                        <Grid x:Name="SectionCache" Visibility="Collapsed" IsHitTestVisible="False">
+                            <ScrollViewer x:Name="OverviewHost"
+                                          VerticalScrollBarVisibility="Hidden"
+                                          HorizontalScrollBarVisibility="Disabled"
+                                          PanningMode="VerticalOnly">
+                                <StackPanel Margin="22,18,22,12">
+                                    <Grid Margin="0,0,0,16">
+                                        <StackPanel>
+                                            <TextBlock Text="OVERVIEW" Style="{StaticResource CaptionText}"/>
+                                            <TextBlock Text="{Binding HardwareVM.ComputerName}" FontSize="22" FontWeight="SemiBold" Foreground="{DynamicResource PrimaryTextBrush}" Margin="0,4,0,2"/>
+                                            <TextBlock Text="{Binding HardwareVM.SystemInfo.OsName}" FontSize="12" Foreground="{DynamicResource SecondaryTextBrush}"/>
+                                        </StackPanel>
+                                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
+                                            <Button Style="{StaticResource WindowControlButtonStyle}"
+                                                    Command="{Binding HardwareVM.CopyAllSpecsCommand}"
+                                                    ToolTip="Copy system specs (Ctrl+Shift+C)"
+                                                    Width="36" Height="32" Margin="0,0,8,0">
+                                                <TextBlock Text="&#xE8C8;" FontFamily="Segoe MDL2 Assets" FontSize="13" Foreground="{DynamicResource AccentBrush}"/>
+                                            </Button>
+                                            <Border Background="{DynamicResource AccentSoftBrush}" CornerRadius="20" Padding="12,6">
+                                                <StackPanel Orientation="Horizontal">
+                                                    <Ellipse Width="7" Height="7" Fill="{DynamicResource SuccessBrush}" Margin="0,0,8,0" VerticalAlignment="Center"/>
+                                                    <TextBlock Text="{Binding HardwareVM.StatusMessage}" FontSize="12" Foreground="{DynamicResource PrimaryTextBrush}" VerticalAlignment="Center"/>
+                                                </StackPanel>
+                                            </Border>
+                                        </StackPanel>
+                                    </Grid>
+
+                                    <controls:HardwareDashboardControl DataContext="{Binding HardwareVM}"/>
+                                </StackPanel>
+                            </ScrollViewer>
+
+                            <controls:StartupImpactControl x:Name="StartupHost"
+                                                           DataContext="{Binding StartupVM}"/>
+                        </Grid>
+                    </Grid>
+
+                    <Border Grid.Row="1" Background="{DynamicResource SurfaceBrush}" BorderBrush="{DynamicResource CardBorderBrush}" BorderThickness="0,1,0,0" Padding="22,10">
+                        <Grid>
+                            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                <Ellipse Width="7" Height="7" Fill="{DynamicResource SuccessBrush}" Margin="0,0,8,0" VerticalAlignment="Center"/>
+                                <TextBlock Text="{Binding HardwareVM.StatusMessage}" Foreground="{DynamicResource SecondaryTextBrush}" FontSize="12" VerticalAlignment="Center"/>
+                                <TextBlock Text="  ·  Ctrl+B Boost  ·  Ctrl+L Clean  ·  Ctrl+F Search" Foreground="{DynamicResource MutedTextBrush}" FontSize="11" VerticalAlignment="Center"/>
+                            </StackPanel>
+                            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
+                                <TextBlock Text="{Binding HardwareVM.PrivilegeText}" Foreground="{DynamicResource AccentBrush}" FontSize="11" FontWeight="SemiBold" VerticalAlignment="Center" Margin="0,0,14,0"/>
+                                <TextBlock Text="Uptime" Foreground="{DynamicResource MutedTextBrush}" FontSize="11" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                                <TextBlock Text="{Binding HardwareVM.SystemInfo.Uptime}" Foreground="{DynamicResource PrimaryTextBrush}" FontSize="12" FontWeight="SemiBold"/>
+                            </StackPanel>
+                        </Grid>
+                    </Border>
+                </Grid>
+            </Grid>
+        </Grid>
+    </Border>
 </Window>
-
-
-
-
-
-

@@ -4,59 +4,56 @@
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         mc:Ignorable="d"
-        Title="Scan Complete" Height="450" Width="400"
+        Title="Scan Complete" Height="600" Width="440"
         WindowStyle="None" AllowsTransparency="True" Background="Transparent"
-        ResizeMode="NoResize" WindowStartupLocation="CenterOwner">
+        ResizeMode="NoResize" WindowStartupLocation="CenterOwner"
+        FontFamily="Segoe UI Variable Display, Segoe UI">
 
     <Window.Resources>
-        <Style TargetType="Button" x:Key="PrimaryButtonStyle">
-            <Setter Property="Background" Value="#00ADEF"/>
+        <Style x:Key="PrimaryButtonStyle" TargetType="Button">
+            <Setter Property="Background" Value="{DynamicResource AccentBrush}"/>
             <Setter Property="Foreground" Value="White"/>
-            <Setter Property="FontWeight" Value="Bold"/>
-            <Setter Property="FontSize" Value="14"/>
-            <Setter Property="Padding" Value="20,10"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="FontSize" Value="13"/>
+            <Setter Property="Height" Value="40"/>
             <Setter Property="BorderThickness" Value="0"/>
             <Setter Property="Cursor" Value="Hand"/>
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="Button">
-                        <Border x:Name="border" Background="{TemplateBinding Background}" CornerRadius="6">
+                        <Border x:Name="border" Background="{TemplateBinding Background}" CornerRadius="10">
                             <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
                         </Border>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsMouseOver" Value="True">
-                                <Setter TargetName="border" Property="Background" Value="#33BBFF"/>
+                                <Setter Property="Opacity" Value="0.92"/>
                             </Trigger>
-                            <Trigger Property="IsPressed" Value="True">
-                                <Setter TargetName="border" Property="Background" Value="#0088CC"/>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter TargetName="border" Property="Background" Value="{DynamicResource CardBorderBrush}"/>
                             </Trigger>
                         </ControlTemplate.Triggers>
                     </ControlTemplate>
                 </Setter.Value>
             </Setter>
         </Style>
-
-        <Style TargetType="Button" x:Key="SecondaryButtonStyle">
+        <Style x:Key="SecondaryButtonStyle" TargetType="Button">
             <Setter Property="Background" Value="Transparent"/>
-            <Setter Property="Foreground" Value="#AAAAAA"/>
-            <Setter Property="FontSize" Value="14"/>
-            <Setter Property="Padding" Value="20,10"/>
+            <Setter Property="Foreground" Value="{DynamicResource SecondaryTextBrush}"/>
+            <Setter Property="FontSize" Value="13"/>
+            <Setter Property="Height" Value="40"/>
             <Setter Property="BorderThickness" Value="1"/>
-            <Setter Property="BorderBrush" Value="#444"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource CardBorderBrush}"/>
             <Setter Property="Cursor" Value="Hand"/>
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="Button">
-                        <Border x:Name="border" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="6">
+                        <Border x:Name="border" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="1" CornerRadius="10">
                             <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
                         </Border>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsMouseOver" Value="True">
-                                <Setter TargetName="border" Property="Background" Value="#333"/>
-                                <Setter Property="Foreground" Value="White"/>
-                            </Trigger>
-                            <Trigger Property="IsPressed" Value="True">
-                                <Setter TargetName="border" Property="Background" Value="#222"/>
+                                <Setter TargetName="border" Property="Background" Value="{DynamicResource HoverBackgroundBrush}"/>
+                                <Setter Property="Foreground" Value="{DynamicResource PrimaryTextBrush}"/>
                             </Trigger>
                         </ControlTemplate.Triggers>
                     </ControlTemplate>
@@ -65,64 +62,84 @@
         </Style>
     </Window.Resources>
 
-    <Border Background="#252526" BorderBrush="#444" BorderThickness="1" CornerRadius="12" Margin="10">
+    <Border Background="{DynamicResource CardBackgroundBrush}" BorderBrush="{DynamicResource CardBorderBrush}" BorderThickness="1" CornerRadius="16" Margin="12">
         <Border.Effect>
-            <DropShadowEffect Color="Black" BlurRadius="20" ShadowDepth="5" Opacity="0.5"/>
+            <DropShadowEffect Color="Black" BlurRadius="24" ShadowDepth="0" Opacity="0.45" RenderingBias="Performance"/>
         </Border.Effect>
 
-        <Grid Margin="25">
+        <Grid Margin="24">
             <Grid.RowDefinitions>
-                <RowDefinition Height="Auto"/> <!-- Icon -->
-                <RowDefinition Height="Auto"/> <!-- Title -->
-                <RowDefinition Height="Auto"/> <!-- Stats -->
-                <RowDefinition Height="*"/>    <!-- List -->
-                <RowDefinition Height="Auto"/> <!-- Buttons -->
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="*"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
             </Grid.RowDefinitions>
 
-            <!-- 1. Icon -->
-            <Viewbox Height="64" Width="64" HorizontalAlignment="Center" Margin="0,0,0,15">
-                <Path Data="M19.89,10.74C19.36,11.5 19.89,12.56 20.81,12.56H25.37C26.93,12.56 28.18,13.82 28.18,15.37V29.44C28.18,31 26.93,32.25 25.37,32.25H6.62C5.06,32.25 3.81,31 3.81,29.44V15.37C3.81,13.82 5.06,12.56 6.62,12.56H11.18C12.1,12.56 12.63,11.5 12.1,10.74L10.21,8H21.78L19.89,10.74M21.5,15.37H10.5V19.12H21.5V15.37M21.5,21H10.5V24.75H21.5V21Z" 
-                      Fill="#00ADEF" />
-            </Viewbox>
-
-            <!-- 2. Title -->
-            <TextBlock Grid.Row="1" Text="Scan Complete" FontSize="24" FontWeight="Bold" Foreground="White" HorizontalAlignment="Center" Margin="0,0,0,5"/>
-            <TextBlock Grid.Row="2" x:Name="TxtSummary" Text="Found 0 files taking up 0 MB" FontSize="16" Foreground="#CCCCCC" HorizontalAlignment="Center" Margin="0,0,0,20"/>
-
-            <!-- 3. List -->
-            <Border Grid.Row="3" Background="#1E1E1E" CornerRadius="8" Padding="15" Margin="0,0,0,25">
-                <StackPanel>
-                    <TextBlock Text="Locations to be cleaned:" Foreground="#888" FontSize="12" Margin="0,0,0,10"/>
-                    <ItemsControl x:Name="ListLocations">
-                        <ItemsControl.ItemTemplate>
-                            <DataTemplate>
-                                <Grid Margin="0,0,0,8">
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="*"/>
-                                        <ColumnDefinition Width="Auto"/>
-                                    </Grid.ColumnDefinitions>
-                                    <StackPanel Orientation="Horizontal" Grid.Column="0">
-                                        <TextBlock Text="• " Foreground="#555" Margin="0,0,5,0"/>
-                                        <TextBlock Text="{Binding Name}" Foreground="#AAA"/>
-                                    </StackPanel>
-                                    <TextBlock Grid.Column="1" Text="{Binding FormattedSize}" Foreground="#00ADEF" FontWeight="SemiBold"/>
-                                </Grid>
-                            </DataTemplate>
-                        </ItemsControl.ItemTemplate>
-                    </ItemsControl>
-                </StackPanel>
+            <Border Width="48" Height="48" CornerRadius="14" Background="{DynamicResource AccentSoftBrush}" HorizontalAlignment="Center" Margin="0,0,0,14">
+                <TextBlock Text="&#xE74C;" FontFamily="Segoe MDL2 Assets" FontSize="18" Foreground="{DynamicResource AccentBrush}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
             </Border>
 
-            <!-- 4. Buttons -->
-            <Grid Grid.Row="4">
+            <TextBlock Grid.Row="1" Text="Scan complete" FontSize="22" FontWeight="SemiBold" Foreground="{DynamicResource PrimaryTextBrush}" HorizontalAlignment="Center"/>
+            <TextBlock Grid.Row="2" x:Name="TxtSummary" Text="Found 0 files" FontSize="13" Foreground="{DynamicResource SecondaryTextBrush}" HorizontalAlignment="Center" Margin="0,6,0,16" TextWrapping="Wrap" TextAlignment="Center"/>
+
+            <Border Grid.Row="3" Background="{DynamicResource SurfaceBrush}" CornerRadius="12" Padding="12" Margin="0,0,0,12" BorderBrush="{DynamicResource CardBorderBrush}" BorderThickness="1">
+                <ScrollViewer VerticalScrollBarVisibility="Hidden"
+                              HorizontalScrollBarVisibility="Disabled"
+                              PanningMode="VerticalOnly"
+                              CanContentScroll="False">
+                    <StackPanel>
+                        <TextBlock Text="CHOOSE LOCATIONS" FontSize="10" FontWeight="SemiBold" Foreground="{DynamicResource MutedTextBrush}" Margin="4,2,0,10"/>
+                        <ItemsControl x:Name="ListLocations">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <Border Background="Transparent" CornerRadius="8" Padding="8,8" Margin="0,0,0,4">
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="Auto"/>
+                                                <ColumnDefinition Width="*"/>
+                                                <ColumnDefinition Width="Auto"/>
+                                            </Grid.ColumnDefinitions>
+                                            <CheckBox Grid.Column="0" IsChecked="{Binding IsSelected, Mode=TwoWay}" VerticalAlignment="Top" Margin="0,2,10,0"/>
+                                            <StackPanel Grid.Column="1">
+                                                <TextBlock Text="{Binding Name}" Foreground="{DynamicResource PrimaryTextBrush}" FontSize="13"/>
+                                                <TextBlock Text="{Binding Warning}" Foreground="{DynamicResource WarningBrush}" FontSize="11" TextWrapping="Wrap" Margin="0,2,0,0">
+                                                    <TextBlock.Style>
+                                                        <Style TargetType="TextBlock">
+                                                            <Setter Property="Visibility" Value="Visible"/>
+                                                            <Style.Triggers>
+                                                                <DataTrigger Binding="{Binding Warning}" Value="{x:Null}">
+                                                                    <Setter Property="Visibility" Value="Collapsed"/>
+                                                                </DataTrigger>
+                                                                <DataTrigger Binding="{Binding Warning}" Value="">
+                                                                    <Setter Property="Visibility" Value="Collapsed"/>
+                                                                </DataTrigger>
+                                                            </Style.Triggers>
+                                                        </Style>
+                                                    </TextBlock.Style>
+                                                </TextBlock>
+                                            </StackPanel>
+                                            <TextBlock Grid.Column="2" Text="{Binding FormattedSize}" Foreground="{DynamicResource AccentBrush}" FontWeight="SemiBold" VerticalAlignment="Top"/>
+                                        </Grid>
+                                    </Border>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </StackPanel>
+                </ScrollViewer>
+            </Border>
+
+            <TextBlock Grid.Row="4" Text="Prefetch and Update Cache stay off unless you enable them." Foreground="{DynamicResource MutedTextBrush}" FontSize="11" Margin="0,0,0,14" TextWrapping="Wrap"/>
+
+            <Grid Grid.Row="5">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*"/>
-                    <ColumnDefinition Width="15"/>
+                    <ColumnDefinition Width="12"/>
                     <ColumnDefinition Width="*"/>
                 </Grid.ColumnDefinitions>
-                
                 <Button Grid.Column="0" Content="Cancel" Style="{StaticResource SecondaryButtonStyle}" Click="BtnCancel_Click"/>
-                <Button Grid.Column="2" Content="Clean Now" Style="{StaticResource PrimaryButtonStyle}" Click="BtnClean_Click"/>
+                <Button Grid.Column="2" x:Name="BtnClean" Content="Clean selected" Style="{StaticResource PrimaryButtonStyle}" Click="BtnClean_Click"/>
             </Grid>
         </Grid>
     </Border>

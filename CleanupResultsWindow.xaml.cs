@@ -43,7 +43,7 @@ namespace CortexDNA
             TxtFreedSpace.Text = sizeText;
             
             // Format Details
-            TxtDetails.Text = $"Cleaned up {fileCount:N0} files from Temp and Cache.";
+            TxtDetails.Text = $"Removed {fileCount:N0} junk files from selected locations.";
         }
 
         private void BtnClose_Click(object sender, RoutedEventArgs e)

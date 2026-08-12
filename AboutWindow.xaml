@@ -6,30 +6,28 @@
         mc:Ignorable="d"
         Title="About Cortex DNA" Height="360" Width="400"
         WindowStyle="None" AllowsTransparency="True" Background="Transparent"
-        ResizeMode="NoResize" WindowStartupLocation="CenterOwner" FontFamily="Segoe UI Variable Display, Segoe UI">
+        ResizeMode="NoResize" WindowStartupLocation="CenterOwner"
+        FontFamily="Segoe UI Variable Display, Segoe UI">
 
     <Window.Resources>
-        <Style TargetType="Button" x:Key="SecondaryButtonStyle">
+        <Style x:Key="SecondaryButtonStyle" TargetType="Button">
             <Setter Property="Background" Value="Transparent"/>
-            <Setter Property="Foreground" Value="#AAAAAA"/>
-            <Setter Property="FontSize" Value="14"/>
-            <Setter Property="Padding" Value="20,10"/>
+            <Setter Property="Foreground" Value="{DynamicResource SecondaryTextBrush}"/>
+            <Setter Property="FontSize" Value="13"/>
+            <Setter Property="Height" Value="40"/>
             <Setter Property="BorderThickness" Value="1"/>
-            <Setter Property="BorderBrush" Value="#444"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource CardBorderBrush}"/>
             <Setter Property="Cursor" Value="Hand"/>
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="Button">
-                        <Border x:Name="border" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="6">
+                        <Border x:Name="border" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="1" CornerRadius="10">
                             <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
                         </Border>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsMouseOver" Value="True">
-                                <Setter TargetName="border" Property="Background" Value="#333"/>
-                                <Setter Property="Foreground" Value="White"/>
-                            </Trigger>
-                            <Trigger Property="IsPressed" Value="True">
-                                <Setter TargetName="border" Property="Background" Value="#222"/>
+                                <Setter TargetName="border" Property="Background" Value="{DynamicResource HoverBackgroundBrush}"/>
+                                <Setter Property="Foreground" Value="{DynamicResource PrimaryTextBrush}"/>
                             </Trigger>
                         </ControlTemplate.Triggers>
                     </ControlTemplate>
@@ -38,50 +36,40 @@
         </Style>
     </Window.Resources>
 
-    <Border Background="#1E1E1E" BorderBrush="#333" BorderThickness="1" CornerRadius="12" Margin="10">
+    <Border Background="{DynamicResource CardBackgroundBrush}" BorderBrush="{DynamicResource CardBorderBrush}" BorderThickness="1" CornerRadius="16" Margin="12">
         <Border.Effect>
-            <DropShadowEffect Color="Black" BlurRadius="20" ShadowDepth="5" Opacity="0.5"/>
+            <DropShadowEffect Color="Black" BlurRadius="24" ShadowDepth="0" Opacity="0.45" RenderingBias="Performance"/>
         </Border.Effect>
 
-        <Grid Margin="25">
+        <Grid Margin="28">
             <Grid.RowDefinitions>
-                <RowDefinition Height="Auto"/> <!-- Icon/Logo -->
-                <RowDefinition Height="Auto"/> <!-- Title -->
-                <RowDefinition Height="Auto"/> <!-- Main Version -->
-                <RowDefinition Height="Auto"/> <!-- Git Hash Version -->
-                <RowDefinition Height="*"/>    <!-- Spacer -->
-                <RowDefinition Height="Auto"/> <!-- Author / Link -->
-                <RowDefinition Height="Auto"/> <!-- Close Button -->
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="*"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
             </Grid.RowDefinitions>
 
-            <!-- 1. Icon / Logo Vector -->
-            <Viewbox Height="64" Width="64" HorizontalAlignment="Center" Margin="0,0,0,15">
-                <!-- A sophisticated, DNA or Cortex-like stylized icon (Brain / Molecule shape) -->
-                <Path Data="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm-1-13h2v6h-2zm0 8h2v2h-2z" 
-                      Fill="#00ADEF" />
-            </Viewbox>
+            <Border Width="56" Height="56" CornerRadius="16" Background="{DynamicResource AccentSoftBrush}" HorizontalAlignment="Center" Margin="0,0,0,14">
+                <TextBlock Text="&#xE9F9;" FontFamily="Segoe MDL2 Assets" FontSize="22" Foreground="{DynamicResource AccentBrush}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+            </Border>
 
-            <!-- 2. Title -->
-            <TextBlock Grid.Row="1" Text="Cortex DNA" FontSize="26" FontWeight="Bold" Foreground="White" HorizontalAlignment="Center" Margin="0,0,0,5"/>
+            <TextBlock Grid.Row="1" Text="Cortex DNA" FontSize="24" FontWeight="SemiBold" Foreground="{DynamicResource PrimaryTextBrush}" HorizontalAlignment="Center"/>
+            <TextBlock Grid.Row="2" x:Name="TxtMainVersion" Text="Version: v1.5.0" FontSize="14" Foreground="{DynamicResource SecondaryTextBrush}" HorizontalAlignment="Center" Margin="0,6,0,2"/>
+            <TextBlock Grid.Row="3" x:Name="TxtSubVersion" Text="" FontSize="11" Foreground="{DynamicResource MutedTextBrush}" HorizontalAlignment="Center"/>
 
-            <!-- 3. Primary Version -->
-            <TextBlock Grid.Row="2" x:Name="TxtMainVersion" Text="Version: v1.5.0" FontSize="16" FontWeight="SemiBold" Foreground="#CCCCCC" HorizontalAlignment="Center" Margin="0,0,0,2"/>
-
-            <!-- 4. Subtle Extended Version (Git Hash) -->
-            <TextBlock Grid.Row="3" x:Name="TxtSubVersion" Text="(Build: e3df...)" FontSize="11" Foreground="#666666" HorizontalAlignment="Center" Margin="0,0,0,20"/>
-
-            <!-- 5. Developed by and Link -->
-            <StackPanel Grid.Row="5" Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,0,0,25">
-                <TextBlock Text="Developed by " FontSize="14" Foreground="#888888"/>
-                <TextBlock FontSize="14" FontWeight="SemiBold">
-                    <Hyperlink NavigateUri="https://github.com/SAADX25" RequestNavigate="Hyperlink_RequestNavigate" Foreground="#00ADEF" TextDecorations="None">
+            <StackPanel Grid.Row="5" Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,0,0,20">
+                <TextBlock Text="Designed by " FontSize="13" Foreground="{DynamicResource MutedTextBrush}"/>
+                <TextBlock FontSize="13" FontWeight="SemiBold">
+                    <Hyperlink NavigateUri="https://github.com/SAADX25" RequestNavigate="Hyperlink_RequestNavigate" Foreground="{DynamicResource AccentBrush}" TextDecorations="None">
                         SAADX25
                     </Hyperlink>
                 </TextBlock>
             </StackPanel>
 
-            <!-- 6. Close Button -->
-            <Button Grid.Row="6" Content="Close" Style="{StaticResource SecondaryButtonStyle}" Click="BtnClose_Click" Width="100" HorizontalAlignment="Center"/>
+            <Button Grid.Row="6" Content="Close" Style="{StaticResource SecondaryButtonStyle}" Click="BtnClose_Click" Width="120" HorizontalAlignment="Center"/>
         </Grid>
     </Border>
 </Window>

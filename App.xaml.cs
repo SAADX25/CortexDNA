@@ -67,11 +67,11 @@ public partial class App : System.Windows.Application
             }
         });
 
-        // 2. Maximum Stability: Force Software Rendering
-        RenderOptions.ProcessRenderMode = RenderMode.SoftwareOnly;
+        // Use GPU/hardware rendering for smooth UI (SoftwareOnly caused constant lag with shadows)
+        RenderOptions.ProcessRenderMode = RenderMode.Default;
         
         // Log Startup
-        Logger.Log("Application Starting (v1.5.0) - RenderMode: SoftwareOnly");
+        Logger.Log("Application Starting (v1.5.0) - RenderMode: Default");
 
         base.OnStartup(e);
 

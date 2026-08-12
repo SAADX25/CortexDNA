@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.IO;
 using System.Linq;
@@ -38,6 +39,7 @@ namespace CortexDNA.ViewModels
         public ICommand CopyBiosDateCommand { get; }
         public ICommand BoostSystemCommand { get; }
         public ICommand CleanDiskCommand { get; }
+        public ICommand RefreshCommand { get; }
 
         public AppSystemInfo SystemInfo { get; set; } = new AppSystemInfo();
 
@@ -45,13 +47,7 @@ namespace CortexDNA.ViewModels
         public bool IsBoosting
         {
             get => _isBoosting;
-            set
-            {
-                if (SetProperty(ref _isBoosting, value))
-                {
-                    BoostButtonText = value ? "Cleaning..." : "BOOST";
-                }
-            }
+            set => SetProperty(ref _isBoosting, value);
         }
 
         private string _boostButtonText = "BOOST";
@@ -81,6 +77,15 @@ namespace CortexDNA.ViewModels
             get => _cleanDiskButtonText;
             set => SetProperty(ref _cleanDiskButtonText, value);
         }
+
+        private bool _isCleanDiskEnabled = true;
+        public bool IsCleanDiskEnabled
+        {
+            get => _isCleanDiskEnabled;
+            set => SetProperty(ref _isCleanDiskEnabled, value);
+        }
+
+        private bool _isCleaningDisk;
 
 
         private string _cpuName = "Detecting CPU...";
@@ -116,7 +121,22 @@ namespace CortexDNA.ViewModels
         }
 
         private bool _isAdmin;
+        public bool IsAdmin
+        {
+            get => _isAdmin;
+            private set
+            {
+                if (SetProperty(ref _isAdmin, value))
+                    OnPropertyChanged(nameof(PrivilegeText));
+            }
+        }
+
+        public string PrivilegeText => IsAdmin ? "Administrator" : "Standard user";
         private bool _isGameModeActive = false;
+        private bool _hardwareReady = false;
+        private int _gameCheckCounter = 0;
+        private readonly HashSet<string> _gameProcessSet;
+        private readonly DiskCleanupService _diskCleanup = new();
         
         private readonly string _specsCachePath;
 
@@ -136,8 +156,7 @@ namespace CortexDNA.ViewModels
         public HardwareViewModel()
         {
             _specsCachePath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "CortexDNA", "specs.json");
-
-
+            _gameProcessSet = new HashSet<string>(_gameProcesses, StringComparer.OrdinalIgnoreCase);
 
             CopyAllSpecsCommand = new RelayCommand(CopyAllSpecs);
             CopyMotherboardCommand = new RelayCommand(() => CopyToClipboard(SystemInfo.MotherboardModel, "Motherboard Model"));
@@ -145,31 +164,32 @@ namespace CortexDNA.ViewModels
             CopyBiosDateCommand = new RelayCommand(() => CopyToClipboard(SystemInfo.BiosDate, "BIOS Date"));
             BoostSystemCommand = new RelayCommand(BoostSystem);
             CleanDiskCommand = new RelayCommand(ExecuteCleanDisk);
-
+            RefreshCommand = new RelayCommand(RequestRefresh);
+            IsAdmin = IsRunningAsAdmin();
 
             // 1. Immediate Cache Load (Fast) - Step 1
             LoadCachedSpecs();
 
+            // Only enable hardware types the UI actually displays (CPU/GPU).
+            // RAM uses GlobalMemoryStatusEx; storage uses DriveInfo; motherboard uses WMI.
             _computer = new Computer
             {
                 IsCpuEnabled = true,
                 IsGpuEnabled = true,
-                IsMemoryEnabled = true,
-                IsMotherboardEnabled = true,
-                IsControllerEnabled = true,
+                IsMemoryEnabled = false,
+                IsMotherboardEnabled = false,
+                IsControllerEnabled = false,
                 IsNetworkEnabled = false,
-                IsStorageEnabled = true
+                IsStorageEnabled = false
             };
 
             // 2. Background Refresh (Slow, but ensures data is fresh) - Step 2 & 3
-            // We move hardware initialization here to avoid blocking UI startup
             Task.Run(InitializeAndRefresh);
 
-            // Setup Timer (Start it, but it might just be idle until hardware is ready)
+            // Timer starts only after LibreHardwareMonitor is open (_hardwareReady)
             _timer = new DispatcherTimer(DispatcherPriority.Background);
             _timer.Interval = TimeSpan.FromSeconds(1);
             _timer.Tick += (s, e) => RefreshData();
-            _timer.Start();
         }
 
         private void CopyToClipboard(string text, string label)
@@ -180,7 +200,7 @@ namespace CortexDNA.ViewModels
                 {
                     System.Windows.Clipboard.SetText(text);
                     StatusMessage = $"{label} copied!";
-                    Task.Delay(2000).ContinueWith(_ => StatusMessage = "Monitoring Active");
+                    _ = ResetStatusAfterDelayAsync();
                 }
                 catch { }
             }
@@ -202,9 +222,15 @@ namespace CortexDNA.ViewModels
             {
                 System.Windows.Clipboard.SetText(sb.ToString());
                 StatusMessage = "Specs copied to clipboard!";
-                Task.Delay(2000).ContinueWith(_ => StatusMessage = "Monitoring Active");
+                _ = ResetStatusAfterDelayAsync();
             }
             catch { }
+        }
+
+        private async Task ResetStatusAfterDelayAsync()
+        {
+            await Task.Delay(2000).ConfigureAwait(true);
+            StatusMessage = "Monitoring Active";
         }
 
         public void PauseMonitoring()
@@ -227,6 +253,11 @@ namespace CortexDNA.ViewModels
             RefreshData(); 
         }
 
+        public void RequestRefresh()
+        {
+            RefreshData();
+        }
+
 
 
         private async Task InitializeAndRefresh()
@@ -237,7 +268,13 @@ namespace CortexDNA.ViewModels
             try
             {
                 _computer.Open();
-                System.Windows.Application.Current?.Dispatcher.Invoke(() => StatusMessage = "Monitoring Active");
+                _hardwareReady = true;
+                System.Windows.Application.Current?.Dispatcher.Invoke(() =>
+                {
+                    StatusMessage = "Monitoring Active";
+                    if (!_isPaused)
+                        _timer?.Start();
+                });
             }
             catch (Exception ex)
             {
@@ -251,8 +288,8 @@ namespace CortexDNA.ViewModels
             // Each property update inside is dispatched back to the UI thread.
             await Task.Run(() => RefreshSystemInfo());
             
-            // Initial Scan
-            RefreshData();
+            // Initial Scan (after counters/WMI are ready)
+            System.Windows.Application.Current?.Dispatcher.Invoke(() => RefreshData());
         }
 
         private void InitializeCounters()
@@ -586,39 +623,34 @@ namespace CortexDNA.ViewModels
 
         private async void RefreshData()
         {
-            if (_isUpdating) return;
+            if (_isUpdating || !_hardwareReady) return;
             _isUpdating = true;
 
             try
             {
-                // Check for Games first
-                CheckGameMode();
+                // Game check every ~5s (not every tick) — Process.GetProcesses is expensive
+                bool shouldCheckGames = (++_gameCheckCounter % 5 == 0) || _isGameModeActive;
 
-                // 1. Background Work: Fetch all heavy data
+                // 1. Background Work: Fetch all heavy data off the UI thread
                 var data = await Task.Run(() => 
                 {
-                    // If Game Mode is active, SKIP GPU polling entirely to save resources
+                    bool? gameFound = null;
+                    if (shouldCheckGames)
+                        gameFound = IsGameProcessRunning();
+
+                    // If Game Mode is active, SKIP LibreHardwareMonitor entirely
                     if (!_isGameModeActive)
                     {
-                        // Update Hardware Monitor (WMI/Driver Access)
+                        // Update only enabled hardware (CPU + GPU) — no double Update
                         _computer.Accept(new CortexDNA.Core.UpdateVisitor());
-                        foreach (var hw in _computer.Hardware)
-                        {
-                            if (hw.HardwareType == HardwareType.Cpu) hw.Update();
-                        }
-                    }
-                    else
-                    {
-                        // Minimal CPU update only if really needed, or skip everything
-                        // We'll skip LibreHardwareMonitor updates entirely in Game Mode
                     }
 
-                    // Performance Counters (Lightweight, keep running but slower)
+                    // Performance Counters (Lightweight)
                     float cpuPerf = 0;
                     if (_cpuPerfCounter != null)
                     {
                         try { cpuPerf = _cpuPerfCounter.NextValue(); }
-                        catch { cpuPerf = 0; } // Counter can throw if the category is invalidated at runtime
+                        catch { cpuPerf = 0; }
                     }
 
                     NativeMethods.MEMORYSTATUSEX memStatus = new NativeMethods.MEMORYSTATUSEX();
@@ -627,18 +659,18 @@ namespace CortexDNA.ViewModels
                     if (NativeMethods.GlobalMemoryStatusEx(ref memStatus))
                     {
                         ramAvailable = memStatus.ullAvailPhys / (1024f * 1024f); 
-                        // Only set total RAM bytes if it wasn't statically loaded correctly
                         if (_totalRamBytes == 0) _totalRamBytes = memStatus.ullTotalPhys;
                     }
 
-                    // Network & Storage Snapshots (Lightweight)
                     var netStats = GetNetworkStatsSnapshot();
-                    
-                    // Skip Storage in Game Mode (I/O heavy)
                     var storageStats = _isGameModeActive ? new System.Collections.Generic.List<StorageDto>() : GetStorageStatsSnapshot();
 
-                    return new { CpuPerf = cpuPerf, RamAvailable = ramAvailable, NetStats = netStats, StorageStats = storageStats };
+                    return new { CpuPerf = cpuPerf, RamAvailable = ramAvailable, NetStats = netStats, StorageStats = storageStats, GameFound = gameFound };
                 });
+
+                // Apply game mode on UI thread (timer interval / status / priority)
+                if (data.GameFound.HasValue)
+                    ApplyGameMode(data.GameFound.Value);
 
                 // 2. UI Thread Updates (Fast Property Assignments)
                 if (!_isGameModeActive)
@@ -666,31 +698,35 @@ namespace CortexDNA.ViewModels
             }
         }
 
-        private void CheckGameMode()
+        private bool IsGameProcessRunning()
         {
-            bool gameFound = false;
             try
             {
-                var processes = Process.GetProcesses();
-                foreach (var p in processes)
+                foreach (var p in Process.GetProcesses())
                 {
-                    if (_gameProcesses.Contains(p.ProcessName.ToLower()))
+                    try
                     {
-                        gameFound = true;
-                        break;
+                        if (_gameProcessSet.Contains(p.ProcessName))
+                            return true;
+                    }
+                    finally
+                    {
+                        p.Dispose();
                     }
                 }
             }
             catch { }
+            return false;
+        }
 
+        private void ApplyGameMode(bool gameFound)
+        {
             if (gameFound && !_isGameModeActive)
             {
-                // Enter Game Mode
                 _isGameModeActive = true;
-                _timer.Interval = TimeSpan.FromSeconds(10); // Slow down refresh
+                _timer.Interval = TimeSpan.FromSeconds(10);
                 StatusMessage = "Gaming Mode Active - Sensors Throttled";
                 
-                // Lower Process Priority
                 try 
                 { 
                     using (Process p = Process.GetCurrentProcess())
@@ -700,12 +736,10 @@ namespace CortexDNA.ViewModels
             }
             else if (!gameFound && _isGameModeActive)
             {
-                // Exit Game Mode
                 _isGameModeActive = false;
-                _timer.Interval = TimeSpan.FromSeconds(1); // Restore speed
+                _timer.Interval = TimeSpan.FromSeconds(1);
                 StatusMessage = "Monitoring Active";
                 
-                // Restore Priority
                 try 
                 { 
                     using (Process p = Process.GetCurrentProcess())
@@ -957,311 +991,155 @@ namespace CortexDNA.ViewModels
 
         private async void BoostSystem()
         {
-            if (IsBoosting) return;
+            if (IsBoosting || _isCleaningDisk) return;
             IsBoosting = true;
             IsBoostEnabled = false;
+            IsCleanDiskEnabled = false;
 
-            // 1. The 'During' State (Loading)
-            BoostButtonText = "Cleaning...";
-            BoostButtonColor = "#444444"; // Dark gray to indicate activity
+            BoostButtonText = "Optimizing...";
+            BoostButtonColor = "#444444";
 
             try
             {
-                // Initial memory check
-                float ramAvailableBefore = 0;
-                NativeMethods.MEMORYSTATUSEX memStatusBefore = new NativeMethods.MEMORYSTATUSEX();
-                memStatusBefore.dwLength = (uint)Marshal.SizeOf(typeof(NativeMethods.MEMORYSTATUSEX));
-                if (NativeMethods.GlobalMemoryStatusEx(ref memStatusBefore))
+                var result = await RamOptimizer.OptimizeMemoryAsync().ConfigureAwait(true);
+
+                if (!result.Success)
                 {
-                    ramAvailableBefore = memStatusBefore.ullAvailPhys / (1024f * 1024f);
+                    StatusMessage = result.ErrorMessage ?? "Boost failed";
+                    BoostButtonText = "Error";
+                    BoostButtonColor = "#dc3545";
+                    await Task.Delay(1800).ConfigureAwait(true);
+                    return;
                 }
 
-                // 2. The 'Action' (Background Task)
-                await Task.Delay(1000); // UX Tip: Add a small artificial delay
-                await RamOptimizer.OptimizeMemoryAsync();
+                int reclaimed = (int)Math.Round(result.ReclaimedMb);
+                BoostButtonText = reclaimed > 0 ? $"~{reclaimed} MB" : "Done";
+                BoostButtonColor = "#28a745";
+                StatusMessage = reclaimed > 0
+                    ? $"Temporarily reclaimed ~{reclaimed} MB of RAM"
+                    : "Working sets trimmed (little free RAM change)";
 
-                // Final memory check
-                float ramAvailableAfter = 0;
-                NativeMethods.MEMORYSTATUSEX memStatusAfter = new NativeMethods.MEMORYSTATUSEX();
-                memStatusAfter.dwLength = (uint)Marshal.SizeOf(typeof(NativeMethods.MEMORYSTATUSEX));
-                if (NativeMethods.GlobalMemoryStatusEx(ref memStatusAfter))
-                {
-                    ramAvailableAfter = memStatusAfter.ullAvailPhys / (1024f * 1024f);
-                }
-
-                // Calculate difference
-                float freedMb = ramAvailableAfter - ramAvailableBefore;
-                if (freedMb < 0) freedMb = 0;
-
-                // 3. The 'After' State (Success Result)
-                BoostButtonText = $"Freed {freedMb:F0} MB!";
-                BoostButtonColor = "#28a745"; // Success Green
-                StatusMessage = $"Success! Freed {freedMb:F0} MB of RAM.";
-                
-                // Force UI refresh
                 RefreshData();
-
-                // 4. The Reset (Back to Normal)
-                await Task.Delay(3000);
+                await Task.Delay(2000).ConfigureAwait(true);
             }
             catch (Exception ex)
             {
-                StatusMessage = $"Boost failed: {ex.Message}";
+                Logger.Log(ex);
+                StatusMessage = "Boost failed unexpectedly";
                 BoostButtonText = "Error";
-                BoostButtonColor = "#dc3545"; // Error Red
-                await Task.Delay(2000);
+                BoostButtonColor = "#dc3545";
+                await Task.Delay(1800).ConfigureAwait(true);
             }
             finally
             {
-                // Reset to original state
                 BoostButtonText = "BOOST";
                 BoostButtonColor = "#00ADEF";
                 IsBoosting = false;
                 IsBoostEnabled = true;
+                IsCleanDiskEnabled = !_isCleaningDisk;
             }
         }
 
         private async void ExecuteCleanDisk()
         {
-            CleanDiskButtonText = "Scanning...";
-            
-            var scanResult = await Task.Run(() => ScanJunkFiles());
+            if (_isCleaningDisk || IsBoosting) return;
+            _isCleaningDisk = true;
+            IsCleanDiskEnabled = false;
+            IsBoostEnabled = false;
 
-            var dialog = new CleanConfirmationWindow(scanResult.FileCount, scanResult.TotalSizeMB, scanResult.Locations);
-            dialog.Owner = System.Windows.Application.Current.MainWindow; 
-            
-            bool? result = dialog.ShowDialog();
-            
-            if (result != true)
+            try
             {
-                CleanDiskButtonText = "CLEAN DISK";
-                return;
-            }
+                CleanDiskButtonText = "Scanning...";
+                StatusMessage = "Scanning junk files...";
 
-            CleanDiskButtonText = "Deep Cleaning...";
-            
-            double freedMB = await Task.Run(() => CleanJunkFiles());
-
-            CleanDiskButtonText = "CLEAN DISK";
-            
-            System.Media.SystemSounds.Exclamation.Play();
-            
-            long freedBytes = (long)(freedMB * 1024.0 * 1024.0);
-            var resultWindow = new CleanupResultsWindow(freedBytes, scanResult.FileCount); 
-            resultWindow.Owner = System.Windows.Application.Current.MainWindow;
-            resultWindow.ShowDialog();
-        }
-
-        private Dictionary<string, string> GetCleanPaths()
-        {
-            string systemRoot = Environment.GetFolderPath(Environment.SpecialFolder.Windows);
-            string programData = Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData);
-            
-            return new Dictionary<string, string>
-            {
-                { "User Temporary Files", System.IO.Path.GetTempPath() },
-                { "System Temp Folder", System.IO.Path.Combine(systemRoot, "Temp") },
-                { "Windows Prefetch", System.IO.Path.Combine(systemRoot, "Prefetch") },
-                { "Recent Items", Environment.GetFolderPath(Environment.SpecialFolder.Recent) },
-                { "Windows Update Cache", System.IO.Path.Combine(systemRoot, @"SoftwareDistribution\Download") },
-                { "Error Reporting Logs", System.IO.Path.Combine(programData, @"Microsoft\Windows\WER") }
-            };
-        }
-
-        private (int FileCount, double TotalSizeMB, List<CleanupLocationItem> Locations) ScanJunkFiles()
-        {
-            int count = 0;
-            long totalBytes = 0;
-            var locations = new List<CleanupLocationItem>();
-
-            foreach (var kvp in GetCleanPaths())
-            {
-                string name = kvp.Key;
-                string path = kvp.Value;
-                long locationBytes = 0;
-
-                if (!Directory.Exists(path)) 
+                var locations = _diskCleanup.CreateDefaultLocations().ToList();
+                var progress = new Progress<CleanupProgress>(p =>
                 {
-                    locations.Add(new CleanupLocationItem { Name = name, Bytes = 0, FormattedSize = "0 MB" });
-                    continue;
-                }
-
-                try
-                {
-                    var options = new System.IO.EnumerationOptions { 
-                        IgnoreInaccessible = true, 
-                        RecurseSubdirectories = true 
-                    };
-                    var files = Directory.GetFiles(path, "*.*", options);
-                    foreach (var f in files)
-                    {
-                        try
-                        {
-                            string fileName = Path.GetFileName(f).ToLower();
-                            if (fileName.StartsWith("thumbcache_") || fileName.StartsWith("iconcache_"))
-                                continue;
-
-                            count++;
-                            long size = new FileInfo(f).Length;
-                            totalBytes += size;
-                            locationBytes += size;
-                        }
-                        catch { }
-                    }
-                }
-                catch { }
-
-                locations.Add(new CleanupLocationItem 
-                { 
-                    Name = name, 
-                    Bytes = locationBytes, 
-                    FormattedSize = FormatByteSize(locationBytes) 
+                    if (!string.IsNullOrWhiteSpace(p.Message))
+                        CleanDiskButtonText = p.Percent > 0 && p.Percent < 100
+                            ? $"{p.Percent}%"
+                            : "Scanning...";
+                    StatusMessage = p.Message;
                 });
-            }
 
-            return (count, totalBytes / (1024.0 * 1024.0), locations);
-        }
-        
-        private string FormatByteSize(long bytes)
-        {
-            if (bytes == 0) return "0 MB";
-            if (bytes < 1048576) return $"{bytes / 1024.0:F0} KB";
-            double mb = bytes / 1048576.0;
-            if (mb > 1024) return $"{mb / 1024.0:F2} GB";
-            return $"{mb:F1} MB";
-        }
-
-        private long DeleteDirectoryRecursively(string target_dir)
-        {
-            long freedBytes = 0;
-            string[] files = Array.Empty<string>();
-            try
-            {
-                files = Directory.GetFiles(target_dir);
-            }
-            catch { }
-
-            foreach (string file in files)
-            {
+                CleanupScanResult scanResult;
                 try
                 {
-                    string fileName = Path.GetFileName(file).ToLower();
-                    if (fileName.StartsWith("thumbcache_") || fileName.StartsWith("iconcache_"))
-                        continue;
-
-                    var fi = new FileInfo(file);
-                    long size = fi.Length;
-                    File.SetAttributes(file, FileAttributes.Normal); 
-                    fi.Delete();
-                    freedBytes += size;
+                    scanResult = await _diskCleanup.ScanAsync(locations, progress).ConfigureAwait(true);
                 }
-                catch { }
-            }
-
-            string[] dirs = Array.Empty<string>();
-            try
-            {
-                dirs = Directory.GetDirectories(target_dir);
-            }
-            catch { }
-
-            foreach (string dir in dirs)
-            {
-                freedBytes += DeleteDirectoryRecursively(dir);
-            }
-
-            try
-            {
-                Directory.Delete(target_dir, false);
-            }
-            catch { }
-            
-            return freedBytes;
-        }
-
-        public class CleanupLocationItem
-        {
-            public string Name { get; set; } = string.Empty;
-            public string FormattedSize { get; set; } = string.Empty;
-            public long Bytes { get; set; }
-        }
-
-        private double CleanJunkFiles()
-        {
-            long deletedBytes = 0;
-            string recentPath = Environment.GetFolderPath(Environment.SpecialFolder.Recent);
-            
-            StopUpdateServices();
-
-            foreach (var path in GetCleanPaths().Values)
-            {
-                if (!Directory.Exists(path)) continue;
-
-                bool isRecentFolder = string.Equals(path, recentPath, StringComparison.OrdinalIgnoreCase);
-
-                try
+                catch (Exception ex)
                 {
-                    foreach (var file in Directory.GetFiles(path))
-                    {
-                        try
-                        {
-                            string fileName = Path.GetFileName(file).ToLower();
-                            if (fileName.StartsWith("thumbcache_") || fileName.StartsWith("iconcache_"))
-                                continue;
-
-                            var fi = new FileInfo(file);
-                            long size = fi.Length;
-                            File.SetAttributes(file, FileAttributes.Normal); 
-                            fi.Delete();
-                            deletedBytes += size;
-                        }
-                        catch { }
-                    }
-
-                    if (!isRecentFolder)
-                    {
-                        foreach (var dir in Directory.GetDirectories(path))
-                        {
-                            deletedBytes += DeleteDirectoryRecursively(dir);
-                        }
-                    }
+                    Logger.Log(ex);
+                    StatusMessage = "Scan failed";
+                    return;
                 }
-                catch { }
-            }
 
-            StartUpdateServices();
-
-            return deletedBytes / (1024.0 * 1024.0);
-        }
-
-        private void StopUpdateServices()
-        {
-            RunHiddenCmd("net stop wuauserv");
-            RunHiddenCmd("net stop bits");
-        }
-
-        private void StartUpdateServices()
-        {
-            RunHiddenCmd("net start wuauserv");
-            RunHiddenCmd("net start bits");
-        }
-
-        private void RunHiddenCmd(string cmd)
-        {
-            try
-            {
-                var psi = new System.Diagnostics.ProcessStartInfo("cmd.exe", "/c " + cmd)
+                var dialog = new CleanConfirmationWindow(scanResult.Locations)
                 {
-                    CreateNoWindow = true,
-                    UseShellExecute = false,
-                    WindowStyle = System.Diagnostics.ProcessWindowStyle.Hidden
+                    Owner = System.Windows.Application.Current?.MainWindow
                 };
-                using (var process = System.Diagnostics.Process.Start(psi))
+
+                bool? confirmed = dialog.ShowDialog();
+                if (confirmed != true || dialog.SelectedLocations.Count == 0)
                 {
-                    process?.WaitForExit(3000); 
+                    StatusMessage = "Monitoring Active";
+                    return;
                 }
+
+                CleanDiskButtonText = "Cleaning...";
+                StatusMessage = "Cleaning selected locations...";
+
+                var cleanProgress = new Progress<CleanupProgress>(p =>
+                {
+                    CleanDiskButtonText = p.Percent is > 0 and < 100 ? $"{p.Percent}%" : "Cleaning...";
+                    if (!string.IsNullOrWhiteSpace(p.Message))
+                        StatusMessage = p.Message;
+                });
+
+                CleanupCleanResult cleanResult;
+                try
+                {
+                    cleanResult = await _diskCleanup.CleanAsync(dialog.SelectedLocations, cleanProgress).ConfigureAwait(true);
+                }
+                catch (Exception ex)
+                {
+                    Logger.Log(ex);
+                    StatusMessage = "Cleanup failed";
+                    return;
+                }
+
+                if (!cleanResult.Success && cleanResult.FreedBytes == 0)
+                {
+                    StatusMessage = cleanResult.ErrorMessage ?? "Cleanup failed";
+                    return;
+                }
+
+                try { System.Media.SystemSounds.Exclamation.Play(); } catch { }
+
+                var resultWindow = new CleanupResultsWindow(cleanResult.FreedBytes, cleanResult.DeletedFiles)
+                {
+                    Owner = System.Windows.Application.Current?.MainWindow
+                };
+                resultWindow.ShowDialog();
+
+                StatusMessage = cleanResult.FailedFiles > 0
+                    ? $"Freed {DiskCleanupService.FormatByteSize(cleanResult.FreedBytes)} ({cleanResult.FailedFiles} files skipped)"
+                    : $"Freed {DiskCleanupService.FormatByteSize(cleanResult.FreedBytes)}";
             }
-            catch { }
+            catch (Exception ex)
+            {
+                Logger.Log(ex);
+                StatusMessage = "Cleanup error - see log.txt";
+            }
+            finally
+            {
+                _isCleaningDisk = false;
+                CleanDiskButtonText = "CLEAN DISK";
+                IsCleanDiskEnabled = true;
+                IsBoostEnabled = !IsBoosting;
+                if (StatusMessage.StartsWith("Scanning") || StatusMessage.StartsWith("Cleaning"))
+                    StatusMessage = "Monitoring Active";
+            }
         }
 
         /// <summary>
@@ -1273,19 +1151,15 @@ namespace CortexDNA.ViewModels
             if (_disposed) return;
             _disposed = true;
 
-            // Stop and dispose the polling timer first so no more ticks fire
             _timer?.Stop();
             _timer = null!;
 
-            // Release LibreHardwareMonitor handles
             try { _computer?.Close(); } catch { }
 
-            // Dispose the PerformanceCounter
             try { _cpuPerfCounter?.Dispose(); } catch { }
             _cpuPerfCounter = null;
         }
 
-        // Keep the old Close() as a thin wrapper so any existing callers don't break.
         public void Close() => Dispose();
 
         private class SystemSpecs

@@ -6,37 +6,27 @@
         mc:Ignorable="d"
         Title="Cleanup Finished" Height="380" Width="400"
         WindowStyle="None" AllowsTransparency="True" Background="Transparent"
-        ResizeMode="NoResize" WindowStartupLocation="CenterOwner">
+        ResizeMode="NoResize" WindowStartupLocation="CenterOwner"
+        FontFamily="Segoe UI Variable Display, Segoe UI">
 
     <Window.Resources>
-        <Style TargetType="Button" x:Key="SuccessButtonStyle">
-            <Setter Property="Background" Value="#28A745"/>
+        <Style x:Key="SuccessButtonStyle" TargetType="Button">
+            <Setter Property="Background" Value="{DynamicResource AccentBrush}"/>
             <Setter Property="Foreground" Value="White"/>
-            <Setter Property="FontWeight" Value="Bold"/>
-            <Setter Property="FontSize" Value="16"/>
-            <Setter Property="Padding" Value="20,12"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="FontSize" Value="14"/>
+            <Setter Property="Height" Value="42"/>
             <Setter Property="BorderThickness" Value="0"/>
             <Setter Property="Cursor" Value="Hand"/>
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="Button">
-                        <Border x:Name="border" Background="{TemplateBinding Background}" CornerRadius="8">
-                            <Border.Effect>
-                                <DropShadowEffect Color="#28A745" BlurRadius="15" ShadowDepth="0" Opacity="0.4"/>
-                            </Border.Effect>
+                        <Border x:Name="border" Background="{TemplateBinding Background}" CornerRadius="10">
                             <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
                         </Border>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsMouseOver" Value="True">
-                                <Setter TargetName="border" Property="Background" Value="#34C759"/>
-                                <Setter TargetName="border" Property="Effect">
-                                    <Setter.Value>
-                                        <DropShadowEffect Color="#28A745" BlurRadius="20" ShadowDepth="0" Opacity="0.6"/>
-                                    </Setter.Value>
-                                </Setter>
-                            </Trigger>
-                            <Trigger Property="IsPressed" Value="True">
-                                <Setter TargetName="border" Property="Background" Value="#1E7E34"/>
+                                <Setter Property="Opacity" Value="0.92"/>
                             </Trigger>
                         </ControlTemplate.Triggers>
                     </ControlTemplate>
@@ -45,38 +35,24 @@
         </Style>
     </Window.Resources>
 
-    <Border Background="#1E1E1E" BorderBrush="#333" BorderThickness="1" CornerRadius="15" Margin="10">
+    <Border Background="{DynamicResource CardBackgroundBrush}" BorderBrush="{DynamicResource CardBorderBrush}" BorderThickness="1" CornerRadius="16" Margin="12">
         <Border.Effect>
-            <DropShadowEffect Color="Black" BlurRadius="30" ShadowDepth="10" Opacity="0.6"/>
+            <DropShadowEffect Color="Black" BlurRadius="24" ShadowDepth="0" Opacity="0.45" RenderingBias="Performance"/>
         </Border.Effect>
 
-        <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" Margin="20">
-            <!-- 1. Success Icon -->
-            <Viewbox Height="64" Width="64" HorizontalAlignment="Center" Margin="0,0,0,15">
-                <Grid>
-                    <Ellipse Fill="#28A745" Opacity="0.2"/>
-                    <Path Data="M12,2A10,10 0 0,1 22,12A10,10 0 0,1 12,22A10,10 0 0,1 2,12A10,10 0 0,1 12,2M11,16.5L18,9.5L16.59,8.09L11,13.67L7.91,10.59L6.5,12L11,16.5Z" 
-                          Fill="#28A745" Stretch="Uniform" Margin="10"/>
-                </Grid>
-            </Viewbox>
+        <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" Margin="28">
+            <Border Width="56" Height="56" CornerRadius="28" Background="#263DDC97" HorizontalAlignment="Center" Margin="0,0,0,16">
+                <TextBlock Text="&#xE73E;" FontFamily="Segoe MDL2 Assets" FontSize="22" Foreground="{DynamicResource SuccessBrush}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+            </Border>
 
-            <!-- 2. Title -->
-            <TextBlock Text="Cleanup Finished!" FontSize="22" FontWeight="Bold" Foreground="White" HorizontalAlignment="Center" Margin="0,0,0,10"/>
+            <TextBlock Text="Cleanup finished" FontSize="20" FontWeight="SemiBold" Foreground="{DynamicResource PrimaryTextBrush}" HorizontalAlignment="Center"/>
 
-            <!-- 3. Hero Section -->
-            <TextBlock x:Name="TxtFreedSpace" Text="289 KB" FontSize="48" FontWeight="ExtraBold" Foreground="#00ADEF" HorizontalAlignment="Center" Margin="0,10,0,10">
-                <TextBlock.Effect>
-                    <DropShadowEffect Color="#00ADEF" BlurRadius="20" ShadowDepth="0" Opacity="0.4"/>
-                </TextBlock.Effect>
-            </TextBlock>
-            
-            <TextBlock Text="TOTAL JUNK FREED" FontSize="12" FontWeight="SemiBold" Foreground="#666" HorizontalAlignment="Center" Margin="0,0,0,15"/>
+            <TextBlock x:Name="TxtFreedSpace" Text="0 KB" FontSize="40" FontWeight="SemiBold" Foreground="{DynamicResource AccentBrush}" HorizontalAlignment="Center" Margin="0,12,0,4"/>
+            <TextBlock Text="SPACE RECLAIMED" FontSize="10" FontWeight="SemiBold" Foreground="{DynamicResource MutedTextBrush}" HorizontalAlignment="Center" Margin="0,0,0,14"/>
 
-            <!-- 4. Subtitle Details -->
-            <TextBlock x:Name="TxtDetails" Text="Cleaned up 80 files..." FontSize="14" Foreground="#AAAAAA" TextWrapping="Wrap" TextAlignment="Center" Margin="0,0,0,25"/>
+            <TextBlock x:Name="TxtDetails" Text="" FontSize="13" Foreground="{DynamicResource SecondaryTextBrush}" TextWrapping="Wrap" TextAlignment="Center" Margin="0,0,0,22"/>
 
-            <!-- 5. Footer Button -->
-            <Button Content="Close" Width="200" Height="40" Click="BtnClose_Click" Style="{StaticResource SuccessButtonStyle}"/>
+            <Button Content="Done" Width="180" Click="BtnClose_Click" Style="{StaticResource SuccessButtonStyle}"/>
         </StackPanel>
     </Border>
 </Window>

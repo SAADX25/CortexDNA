@@ -13,7 +13,9 @@ using MessageBox = System.Windows.MessageBox;
 using System.Windows.Media;
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
+using System.Windows.Threading;
 using System.Text.Json;
+using System.Windows.Input;
 
 namespace CortexDNA
 {
@@ -21,6 +23,13 @@ namespace CortexDNA
     {
         private NotifyIcon _notifyIcon;
         private bool _isExplicitExit = false;
+        private DispatcherTimer? _themeSaveDebounceTimer;
+        private bool _settingsReady;
+        private double _opacityPercent = 100.0;
+        private System.Windows.Media.Color _windowBackgroundColor = System.Windows.Media.Color.FromRgb(0x05, 0x05, 0x05);
+        private System.Windows.Media.Color _cardBackgroundColor = System.Windows.Media.Color.FromRgb(0x0E, 0x0E, 0x0E);
+        private System.Windows.Media.Color _cardBorderColor = System.Windows.Media.Color.FromRgb(0x1F, 0x1F, 0x1F);
+        private System.Windows.Media.Color _surfaceColor = System.Windows.Media.Color.FromRgb(0x12, 0x12, 0x12);
 
         private string _currentThemeFileName = "DarkTheme.xaml";
 
@@ -29,27 +38,154 @@ namespace CortexDNA
             InitializeComponent();
             InitializeTrayIcon();
             this.Loaded += MainWindow_Loaded;
-            // Apply saved theme (or default) and fixed opacity
-            this.Loaded += (s, e) =>
+            this.StateChanged += MainWindow_StateChanged;
+            RestoreAppearanceSettings();
+
+            if (DataContext is MainViewModel vm)
             {
-                try
+                vm.PropertyChanged += MainViewModel_PropertyChanged;
+            }
+
+            ApplySectionHosts();
+        }
+
+        private void MainViewModel_PropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
+        {
+            if (e.PropertyName is nameof(MainViewModel.CurrentSection)
+                or nameof(MainViewModel.IsStartupVisible)
+                or nameof(MainViewModel.IsOverviewVisible))
+            {
+                ApplySectionHosts();
+            }
+        }
+
+        private void NavOverview_Click(object sender, RoutedEventArgs e)
+        {
+            if (DataContext is MainViewModel vm)
+                vm.NavigateCommand.Execute("Overview");
+            ApplySectionHosts();
+        }
+
+        private void NavStartup_Click(object sender, RoutedEventArgs e)
+        {
+            if (DataContext is MainViewModel vm)
+                vm.NavigateCommand.Execute("Startup");
+            ApplySectionHosts();
+        }
+
+        private void ApplySectionHosts()
+        {
+            if (SectionStage == null || SectionCache == null || OverviewHost == null || StartupHost == null)
+                return;
+
+            bool startup = DataContext is MainViewModel vm && vm.IsStartupVisible;
+            FrameworkElement show = startup ? StartupHost : OverviewHost;
+            FrameworkElement hide = startup ? OverviewHost : StartupHost;
+
+            MoveToPanel(hide, SectionCache);
+            hide.Visibility = Visibility.Collapsed;
+            hide.IsHitTestVisible = false;
+
+            if (show.Parent != SectionStage)
+            {
+                SectionStage.Children.Clear();
+                MoveToPanel(show, SectionStage);
+            }
+
+            show.Visibility = Visibility.Visible;
+            show.Opacity = 1;
+            show.IsHitTestVisible = true;
+
+            InvalidateVisual();
+        }
+
+        private static void MoveToPanel(FrameworkElement element, System.Windows.Controls.Panel target)
+        {
+            if (element.Parent == target)
+                return;
+
+            if (element.Parent is System.Windows.Controls.Panel current)
+                current.Children.Remove(element);
+
+            if (element.Parent == null)
+                target.Children.Add(element);
+        }
+
+        private void Window_PreviewKeyDown(object sender, System.Windows.Input.KeyEventArgs e)
+        {
+            if (e.Key == Key.F && Keyboard.Modifiers == ModifierKeys.Control)
+            {
+                UtilitySearchBox?.Focus();
+                UtilitySearchBox?.SelectAll();
+                e.Handled = true;
+            }
+            else if (e.Key == Key.F5 && DataContext is MainViewModel main && main.IsStartupVisible)
+            {
+                main.StartupVM.RefreshCommand.Execute(null);
+                e.Handled = true;
+            }
+        }
+
+        private void UtilitySearchBox_TextChanged(object sender, System.Windows.Controls.TextChangedEventArgs e)
+        {
+            string query = UtilitySearchBox?.Text ?? string.Empty;
+            if (SearchPlaceholder != null)
+                SearchPlaceholder.Visibility = string.IsNullOrWhiteSpace(query) ? Visibility.Visible : Visibility.Collapsed;
+
+            FilterUtilities(query);
+        }
+
+        private void FilterUtilities(string query)
+        {
+            query = (query ?? string.Empty).Trim();
+            bool searching = query.Length > 0;
+            string needle = query.ToLowerInvariant();
+
+            System.Windows.Controls.TextBlock? currentSection = null;
+            bool sectionHasVisible = false;
+            int visibleButtons = 0;
+
+            void FlushSection()
+            {
+                if (currentSection != null)
+                    currentSection.Visibility = (!searching || sectionHasVisible) ? Visibility.Visible : Visibility.Collapsed;
+            }
+
+            foreach (UIElement child in UtilitiesWrapPanel.Children)
+            {
+                if (ReferenceEquals(child, NoToolsText))
+                    continue;
+
+                if (child is System.Windows.Controls.TextBlock section)
                 {
-                    var settings = LoadThemeSettings();
-                    _currentThemeFileName = settings?.ThemeFileName ?? "DarkTheme.xaml";
-                    
-                    if (OpacitySlider != null)
-                    {
-                        OpacitySlider.Value = settings?.OpacityPercent ?? 100.0;
-                    }
-                    
-                    ApplyTheme(_currentThemeFileName);
+                    FlushSection();
+                    currentSection = section;
+                    sectionHasVisible = false;
+                    continue;
                 }
-                catch { }
-            };
+
+                if (child is System.Windows.Controls.Button btn)
+                {
+                    string haystack = $"{btn.Tag} {btn.ToolTip}".ToLowerInvariant();
+                    bool match = !searching || haystack.Contains(needle);
+                    btn.Visibility = match ? Visibility.Visible : Visibility.Collapsed;
+                    if (match)
+                    {
+                        sectionHasVisible = true;
+                        visibleButtons++;
+                    }
+                }
+            }
+
+            FlushSection();
+            if (NoToolsText != null)
+                NoToolsText.Visibility = searching && visibleButtons == 0 ? Visibility.Visible : Visibility.Collapsed;
         }
 
         private void MainWindow_Loaded(object sender, RoutedEventArgs e)
         {
+            ApplySectionHosts();
+
             int delayMs = 0;
             foreach (UIElement child in UtilitiesWrapPanel.Children)
             {
@@ -200,6 +336,7 @@ namespace CortexDNA
             }
             else
             {
+                SaveThemeSettings();
                 _notifyIcon?.Dispose();
                 base.OnClosing(e);
             }
@@ -232,6 +369,9 @@ namespace CortexDNA
         {
             if (sender is System.Windows.Controls.Button btn && btn.ContextMenu != null)
             {
+                if (OpacitySlider != null)
+                    OpacitySlider.Value = _opacityPercent;
+
                 btn.ContextMenu.PlacementTarget = btn;
                 btn.ContextMenu.IsOpen = true;
             }
@@ -263,20 +403,98 @@ namespace CortexDNA
 
         private void OpacitySlider_ValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
         {
+            if (!_settingsReady) return;
+
             try
             {
-                double value = OpacitySlider?.Value ?? 100.0;
-                if (this.Resources["AppBackgroundBrush"] is SolidColorBrush sb)
+                _opacityPercent = ClampOpacity(OpacitySlider?.Value ?? e.NewValue);
+                ApplyBackgroundOpacity();
+
+                if (_themeSaveDebounceTimer == null)
                 {
-                    sb.Opacity = Math.Max(0.0, Math.Min(1.0, value / 100.0));
+                    _themeSaveDebounceTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(250) };
+                    _themeSaveDebounceTimer.Tick += (s, args) =>
+                    {
+                        _themeSaveDebounceTimer.Stop();
+                        SaveThemeSettings();
+                    };
                 }
-                else if (this.Background is SolidColorBrush wb)
-                {
-                    wb.Opacity = Math.Max(0.0, Math.Min(1.0, value / 100.0));
-                }
-                SaveThemeSettings();
+                _themeSaveDebounceTimer.Stop();
+                _themeSaveDebounceTimer.Start();
             }
             catch { }
+        }
+
+        private void RestoreAppearanceSettings()
+        {
+            try
+            {
+                var settings = LoadThemeSettings();
+                _currentThemeFileName = settings?.ThemeFileName ?? "DarkTheme.xaml";
+                _opacityPercent = settings?.OpacityPercent > 0
+                    ? ClampOpacity(settings.OpacityPercent)
+                    : 100.0;
+
+                ApplyTheme(_currentThemeFileName);
+
+                if (OpacitySlider != null)
+                    OpacitySlider.Value = _opacityPercent;
+            }
+            catch
+            {
+                ApplyTheme(_currentThemeFileName);
+            }
+            finally
+            {
+                _settingsReady = true;
+            }
+        }
+
+        private static double ClampOpacity(double value)
+        {
+            if (double.IsNaN(value) || double.IsInfinity(value)) return 100.0;
+            return Math.Max(20.0, Math.Min(100.0, value));
+        }
+
+        private void ApplyBackgroundOpacity()
+        {
+            byte alpha = (byte)Math.Round(255.0 * ClampOpacity(_opacityPercent) / 100.0);
+            var color = System.Windows.Media.Color.FromArgb(
+                alpha,
+                _windowBackgroundColor.R,
+                _windowBackgroundColor.G,
+                _windowBackgroundColor.B);
+
+            var brush = new SolidColorBrush(color);
+            SetThemeResource("AppBackgroundBrush", brush);
+            SetThemeResource("CardBackgroundBrush", new SolidColorBrush(System.Windows.Media.Color.FromArgb(
+                alpha, _cardBackgroundColor.R, _cardBackgroundColor.G, _cardBackgroundColor.B)));
+            SetThemeResource("CardBorderBrush", new SolidColorBrush(System.Windows.Media.Color.FromArgb(
+                alpha, _cardBorderColor.R, _cardBorderColor.G, _cardBorderColor.B)));
+            SetThemeResource("SurfaceBrush", new SolidColorBrush(System.Windows.Media.Color.FromArgb(
+                alpha, _surfaceColor.R, _surfaceColor.G, _surfaceColor.B)));
+            SetThemeResource("HoverBackgroundBrush", new SolidColorBrush(System.Windows.Media.Color.FromArgb(
+                alpha, LightenColor(_cardBackgroundColor, 0.10).R, LightenColor(_cardBackgroundColor, 0.10).G, LightenColor(_cardBackgroundColor, 0.10).B)));
+            SetThemeResource("PressedBackgroundBrush", new SolidColorBrush(System.Windows.Media.Color.FromArgb(
+                alpha, DarkenColor(_cardBackgroundColor, 0.08).R, DarkenColor(_cardBackgroundColor, 0.08).G, DarkenColor(_cardBackgroundColor, 0.08).B)));
+            SetThemeResource("BadgeBackgroundBrush", new SolidColorBrush(System.Windows.Media.Color.FromArgb(
+                alpha, _cardBorderColor.R, _cardBorderColor.G, _cardBorderColor.B)));
+
+            this.Background = System.Windows.Media.Brushes.Transparent;
+            if (RootChrome != null)
+                RootChrome.Background = brush;
+        }
+
+        private static System.Windows.Media.Color ReadColor(ResourceDictionary dict, string key, System.Windows.Media.Color fallback)
+        {
+            return dict.Contains(key) && dict[key] is System.Windows.Media.Color c ? c : fallback;
+        }
+
+        private void SetThemeResource(string key, object value)
+        {
+            this.Resources[key] = value;
+            if (Application.Current != null)
+                Application.Current.Resources[key] = value;
         }
 
         private void ApplyTheme(string themeFileName)
@@ -286,61 +504,54 @@ namespace CortexDNA
                 var uri = new Uri($"Themes/{themeFileName}", UriKind.Relative);
                 var dict = new ResourceDictionary { Source = uri };
 
-                // Read color entries and create brushes
-                System.Windows.Media.Color bg = (System.Windows.Media.Color)dict["AppBackgroundColor"];
-                System.Windows.Media.Color primary = (System.Windows.Media.Color)dict["PrimaryTextColor"];
-                System.Windows.Media.Color secondary = (System.Windows.Media.Color)dict["SecondaryTextColor"];
-                System.Windows.Media.Color cardBg = (System.Windows.Media.Color)dict["CardBackgroundColor"];
-                System.Windows.Media.Color cardBorder = (System.Windows.Media.Color)dict["CardBorderColor"];
-                System.Windows.Media.Color accent = (System.Windows.Media.Color)dict["AccentColor"];
+                var bg = ReadColor(dict, "AppBackgroundColor", System.Windows.Media.Color.FromRgb(0x05, 0x05, 0x05));
+                var primary = ReadColor(dict, "PrimaryTextColor", Colors.White);
+                var secondary = ReadColor(dict, "SecondaryTextColor", System.Windows.Media.Color.FromRgb(0x9C, 0xA3, 0xAF));
+                var cardBg = ReadColor(dict, "CardBackgroundColor", System.Windows.Media.Color.FromRgb(0x0E, 0x0E, 0x0E));
+                var cardBorder = ReadColor(dict, "CardBorderColor", System.Windows.Media.Color.FromRgb(0x1F, 0x1F, 0x1F));
+                var accent = ReadColor(dict, "AccentColor", System.Windows.Media.Color.FromRgb(0x22, 0xC5, 0x5E));
+                var surface = ReadColor(dict, "SurfaceColor", LightenColor(cardBg, 0.08));
+                var muted = ReadColor(dict, "MutedTextColor", DarkenColor(secondary, 0.15));
+                var warning = ReadColor(dict, "WarningColor", System.Windows.Media.Color.FromRgb(0xE8, 0xB8, 0x4A));
+                var success = ReadColor(dict, "SuccessColor", System.Windows.Media.Color.FromRgb(0x3D, 0xDC, 0x97));
+                var error = ReadColor(dict, "ErrorColor", System.Windows.Media.Color.FromRgb(0xF0, 0x71, 0x78));
+                var accentSoft = ReadColor(dict, "AccentSoftColor", System.Windows.Media.Color.FromArgb(0x26, accent.R, accent.G, accent.B));
+                var accent2 = DarkenColor(accent, 0.25);
 
-                System.Windows.Media.Color accent2 = DarkenColor(accent, 0.25);
+                SetThemeResource("AppBackgroundColor", bg);
+                SetThemeResource("PrimaryTextColor", primary);
+                SetThemeResource("SecondaryTextColor", secondary);
+                SetThemeResource("CardBackgroundColor", cardBg);
+                SetThemeResource("CardBorderColor", cardBorder);
+                SetThemeResource("AccentColor", accent);
+                SetThemeResource("AccentColor2", accent2);
+                SetThemeResource("SuccessColor", success);
+                SetThemeResource("ErrorColor", error);
+                SetThemeResource("WarningColor", warning);
 
-                // Set Color resources (for GradientStop and effects)
-                this.Resources["AppBackgroundColor"] = bg;
-                this.Resources["PrimaryTextColor"] = primary;
-                this.Resources["SecondaryTextColor"] = secondary;
-                this.Resources["CardBackgroundColor"] = cardBg;
-                this.Resources["CardBorderColor"] = cardBorder;
-                this.Resources["AccentColor"] = accent;
-
-                // Create brushes
                 var appBrush = new SolidColorBrush(bg);
-                var primaryBrush = new SolidColorBrush(primary);
-                var secondaryBrush = new SolidColorBrush(secondary);
-                var cardBgBrush = new SolidColorBrush(cardBg);
-                var cardBorderBrush = new SolidColorBrush(cardBorder);
-                var accentBrush = new SolidColorBrush(accent);
+                SetThemeResource("AppBackgroundBrush", appBrush);
+                SetThemeResource("PrimaryTextBrush", new SolidColorBrush(primary));
+                SetThemeResource("SecondaryTextBrush", new SolidColorBrush(secondary));
+                SetThemeResource("MutedTextBrush", new SolidColorBrush(muted));
+                SetThemeResource("CardBackgroundBrush", new SolidColorBrush(cardBg));
+                SetThemeResource("CardBorderBrush", new SolidColorBrush(cardBorder));
+                SetThemeResource("SurfaceBrush", new SolidColorBrush(surface));
+                SetThemeResource("AccentBrush", new SolidColorBrush(accent));
+                SetThemeResource("AccentBrush2", new SolidColorBrush(accent2));
+                SetThemeResource("AccentSoftBrush", new SolidColorBrush(accentSoft));
+                SetThemeResource("HoverBackgroundBrush", new SolidColorBrush(LightenColor(cardBg, 0.10)));
+                SetThemeResource("PressedBackgroundBrush", new SolidColorBrush(DarkenColor(cardBg, 0.08)));
+                SetThemeResource("BadgeBackgroundBrush", new SolidColorBrush(cardBorder));
+                SetThemeResource("SuccessBrush", new SolidColorBrush(success));
+                SetThemeResource("ErrorBrush", new SolidColorBrush(error));
+                SetThemeResource("WarningBrush", new SolidColorBrush(warning));
 
-                this.Resources["AppBackgroundBrush"] = appBrush;
-                this.Resources["PrimaryTextBrush"] = primaryBrush;
-                this.Resources["SecondaryTextBrush"] = secondaryBrush;
-                this.Resources["CardBackgroundBrush"] = cardBgBrush;
-                this.Resources["CardBorderBrush"] = cardBorderBrush;
-                this.Resources["AccentBrush"] = accentBrush;
-                this.Resources["AccentBrush2"] = new SolidColorBrush(accent2);
-                this.Resources["AccentColor2"] = accent2;
-
-                // Derived brushes for hover/pressed/badge/success/error
-                System.Windows.Media.Color lightenCard = LightenColor(cardBg, 0.07);
-                System.Windows.Media.Color darkenCard = DarkenColor(cardBg, 0.06);
-                this.Resources["HoverBackgroundBrush"] = new SolidColorBrush(lightenCard);
-                this.Resources["PressedBackgroundBrush"] = new SolidColorBrush(darkenCard);
-                this.Resources["BadgeBackgroundBrush"] = cardBorderBrush;
-                var successColor = System.Windows.Media.Color.FromArgb(0xFF, 0x88, 0xFF, 0x88);
-                var errorColor = System.Windows.Media.Color.FromArgb(0xFF, 0xFF, 0x55, 0x55);
-                this.Resources["SuccessBrush"] = new SolidColorBrush(successColor);
-                this.Resources["ErrorBrush"] = new SolidColorBrush(errorColor);
-                this.Resources["SuccessColor"] = successColor;
-                this.Resources["ErrorColor"] = errorColor;
-
-                // Ensure background uses the brush
-                if (this.Resources["AppBackgroundBrush"] is SolidColorBrush appBrushRes)
-                {
-                    this.Background = appBrushRes;
-                    double value = OpacitySlider?.Value ?? 100.0;
-                    appBrushRes.Opacity = Math.Max(0.0, Math.Min(1.0, value / 100.0));
-                }
+                _windowBackgroundColor = bg;
+                _cardBackgroundColor = cardBg;
+                _cardBorderColor = cardBorder;
+                _surfaceColor = surface;
+                ApplyBackgroundOpacity();
             }
             catch (Exception ex)
             {
@@ -371,7 +582,7 @@ namespace CortexDNA
                 var settings = new ThemeSettings
                 {
                     ThemeFileName = _currentThemeFileName,
-                    OpacityPercent = OpacitySlider?.Value ?? 100.0
+                    OpacityPercent = ClampOpacity(_opacityPercent)
                 };
 
                 string dir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "CortexDNA");
@@ -573,6 +784,14 @@ namespace CortexDNA
             this.WindowState = this.WindowState == WindowState.Maximized 
                 ? WindowState.Normal 
                 : WindowState.Maximized;
+        }
+
+        private void MainWindow_StateChanged(object? sender, EventArgs e)
+        {
+            if (RootChrome == null) return;
+            bool maximized = WindowState == WindowState.Maximized;
+            RootChrome.Margin = maximized ? new Thickness(0) : new Thickness(8);
+            RootChrome.CornerRadius = new CornerRadius(maximized ? 0 : 14);
         }
 
         private void BtnClose_Click(object sender, RoutedEventArgs e)
