@@ -1,5 +1,5 @@
 #define MyAppName "Cortex DNA"
-#define MyAppVersion "1.5.0"
+#define MyAppVersion "2.0.0"
 #define MyAppPublisher "Cortex"
 #define MyAppExeName "CortexDNA.exe"
 
@@ -18,7 +18,7 @@ PrivilegesRequired=admin
 ; Force 64-bit Installation Mode (Installs to C:\Program Files, not x86)
 ArchitecturesInstallIn64BitMode=x64
 OutputDir=E:\Code-Setup\Cortex Core\app\CortexDNA\bin\Release\Installer
-OutputBaseFilename=CortexDNA_Installer_v1.5.0
+OutputBaseFilename=CortexDNA_Installer_v2.0.0
 Compression=lzma
 SolidCompression=yes
 WizardStyle=modern

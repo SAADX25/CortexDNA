@@ -57,7 +57,7 @@
             </Border>
 
             <TextBlock Grid.Row="1" Text="Cortex DNA" FontSize="24" FontWeight="SemiBold" Foreground="{DynamicResource PrimaryTextBrush}" HorizontalAlignment="Center"/>
-            <TextBlock Grid.Row="2" x:Name="TxtMainVersion" Text="Version: v1.5.0" FontSize="14" Foreground="{DynamicResource SecondaryTextBrush}" HorizontalAlignment="Center" Margin="0,6,0,2"/>
+            <TextBlock Grid.Row="2" x:Name="TxtMainVersion" Text="Version: v2.0.0" FontSize="14" Foreground="{DynamicResource SecondaryTextBrush}" HorizontalAlignment="Center" Margin="0,6,0,2"/>
             <TextBlock Grid.Row="3" x:Name="TxtSubVersion" Text="" FontSize="11" Foreground="{DynamicResource MutedTextBrush}" HorizontalAlignment="Center"/>
 
             <StackPanel Grid.Row="5" Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,0,0,20">

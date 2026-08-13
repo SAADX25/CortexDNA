@@ -115,7 +115,7 @@ assets/screenshots/about.png              — About window
 ### Download the Installer
 
 1. Go to the [**Releases**](https://github.com/SAADX25/CortexDNA/releases) page
-2. Download `CortexDNA_Installer_v1.5.0.exe` (or the latest version)
+2. Download `CortexDNA_Installer_v2.0.0.exe` (or the latest version)
 3. Run the installer — it will guide you through setup
 4. Launch Cortex DNA from the Start Menu or Desktop shortcut
 

@@ -12,9 +12,9 @@
     <ApplicationIcon>app.ico</ApplicationIcon>
     
     <!-- Metadata -->
-    <Version>1.5.0</Version>
-    <AssemblyVersion>1.5.0.0</AssemblyVersion>
-    <FileVersion>1.5.0.0</FileVersion>
+    <Version>2.0.0</Version>
+    <AssemblyVersion>2.0.0.0</AssemblyVersion>
+    <FileVersion>2.0.0.0</FileVersion>
     <Authors>SAADX25</Authors>
     <Company>Cortex</Company>
     <Product>Cortex DNA</Product>
