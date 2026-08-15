@@ -78,6 +78,13 @@
             <Setter Property="Margin" Value="0,0,12,0"/>
         </Style>
 
+        <Style x:Key="SidebarIcon" TargetType="TextBlock">
+            <Setter Property="FontFamily" Value="Segoe MDL2 Assets"/>
+            <Setter Property="FontSize" Value="14"/>
+            <Setter Property="Width" Value="22"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+        </Style>
+
         <Style x:Key="SidebarNavStyle" TargetType="RadioButton">
             <Setter Property="Background" Value="Transparent"/>
             <Setter Property="Foreground" Value="{DynamicResource SecondaryTextBrush}"/>
@@ -358,7 +365,7 @@
     </WindowChrome.WindowChrome>
 
     <Border x:Name="RootChrome"
-            Background="{DynamicResource AppBackgroundBrush}"
+            Background="Transparent"
             BorderBrush="{DynamicResource CardBorderBrush}"
             BorderThickness="1"
             CornerRadius="14"
@@ -400,7 +407,10 @@
                                     <MenuItem Header="Window opacity" IsEnabled="False"/>
                                     <MenuItem>
                                         <MenuItem.Header>
-                                            <Slider x:Name="OpacitySlider" Style="{StaticResource ModernSliderStyle}" Width="150" Minimum="20" Maximum="100" Value="100" SmallChange="1" LargeChange="5" ValueChanged="OpacitySlider_ValueChanged"/>
+                                            <StackPanel Width="180">
+                                                <Slider x:Name="OpacitySlider" Style="{StaticResource ModernSliderStyle}" Width="180" Minimum="45" Maximum="100" Value="100" SmallChange="1" LargeChange="5" ValueChanged="OpacitySlider_ValueChanged"/>
+                                                <TextBlock x:Name="OpacityValueText" Text="100% · solid" FontSize="11" Foreground="{DynamicResource MutedTextBrush}" Margin="0,8,0,0" HorizontalAlignment="Center"/>
+                                            </StackPanel>
                                         </MenuItem.Header>
                                     </MenuItem>
                                 </ContextMenu>
@@ -438,16 +448,16 @@
                         </Grid.RowDefinitions>
 
                         <StackPanel Grid.Row="0" Margin="16,18,16,8">
-                            <TextBlock Text="WORKSPACE" Style="{StaticResource CaptionText}"/>
+                            <TextBlock Text="WORKSPACE" Style="{StaticResource CaptionText}" Foreground="{DynamicResource AccentBrush}"/>
                             <TextBlock Text="System utilities" FontSize="13" Foreground="{DynamicResource PrimaryTextBrush}" Margin="0,4,0,10"/>
 
-                            <TextBlock Text="CORTEX" Style="{StaticResource SidebarSectionStyle}" Margin="6,0,0,6"/>
+                            <TextBlock Text="CORTEX" Style="{StaticResource SidebarSectionStyle}" Foreground="{DynamicResource AccentBrush}" Margin="6,8,0,6"/>
                             <RadioButton Style="{StaticResource SidebarNavStyle}" GroupName="CortexNav"
                                          IsChecked="{Binding IsOverviewSelected, Mode=OneWay}"
                                          Command="{Binding NavigateCommand}" CommandParameter="Overview"
                                          Click="NavOverview_Click">
                                 <StackPanel Orientation="Horizontal">
-                                    <TextBlock Text="&#xE80F;" FontFamily="Segoe MDL2 Assets" Width="22" FontSize="14"/>
+                                    <TextBlock Text="&#xE80F;" Style="{StaticResource SidebarIcon}" Foreground="{DynamicResource AccentBrush}"/>
                                     <TextBlock Text="Overview" VerticalAlignment="Center"/>
                                 </StackPanel>
                             </RadioButton>
@@ -456,18 +466,18 @@
                                          Command="{Binding NavigateCommand}" CommandParameter="Startup"
                                          Click="NavStartup_Click">
                                 <StackPanel Orientation="Horizontal">
-                                    <TextBlock Text="&#xE7B5;" FontFamily="Segoe MDL2 Assets" Width="22" FontSize="14"/>
+                                    <TextBlock Text="&#xE7B5;" Style="{StaticResource SidebarIcon}" Foreground="#D97706"/>
                                     <TextBlock Text="Startup Impact" VerticalAlignment="Center"/>
                                 </StackPanel>
                             </RadioButton>
 
-                            <Border Background="{DynamicResource CardBackgroundBrush}" BorderBrush="{DynamicResource CardBorderBrush}" BorderThickness="1" CornerRadius="8" Padding="8,6" Margin="0,12,0,0">
+                            <Border Background="{DynamicResource SurfaceBrush}" BorderBrush="{DynamicResource CardBorderBrush}" BorderThickness="1" CornerRadius="8" Padding="8,6" Margin="0,12,0,0">
                                 <Grid>
                                     <Grid.ColumnDefinitions>
                                         <ColumnDefinition Width="Auto"/>
                                         <ColumnDefinition Width="*"/>
                                     </Grid.ColumnDefinitions>
-                                    <TextBlock Text="&#xE721;" FontFamily="Segoe MDL2 Assets" FontSize="12" Foreground="{DynamicResource MutedTextBrush}" VerticalAlignment="Center" Margin="2,0,8,0"/>
+                                    <TextBlock Text="&#xE721;" FontFamily="Segoe MDL2 Assets" FontSize="12" Foreground="{DynamicResource AccentBrush}" VerticalAlignment="Center" Margin="2,0,8,0"/>
                                     <TextBlock x:Name="SearchPlaceholder" Grid.Column="1" Text="Search tools" Foreground="{DynamicResource MutedTextBrush}" VerticalAlignment="Center" IsHitTestVisible="False"/>
                                     <TextBox x:Name="UtilitySearchBox" Grid.Column="1"
                                              Background="Transparent" BorderThickness="0"
@@ -481,74 +491,74 @@
 
                         <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Hidden" HorizontalScrollBarVisibility="Disabled" PanningMode="VerticalOnly">
                             <StackPanel x:Name="UtilitiesWrapPanel" Margin="0,0,0,16">
-                                <TextBlock Text="DIAGNOSTICS" Style="{StaticResource SidebarSectionStyle}"/>
+                                <TextBlock Text="DIAGNOSTICS" Style="{StaticResource SidebarSectionStyle}" Foreground="#0D9488"/>
                                 <Button Style="{StaticResource SidebarButtonStyle}" Click="Button_MsInfo_Click" ToolTip="System Information" Tag="system info msinfo diagnostics">
                                     <StackPanel Orientation="Horizontal">
-                                        <TextBlock Text="&#xE946;" FontFamily="Segoe MDL2 Assets" Width="22" FontSize="14"/>
+                                        <TextBlock Text="&#xE946;" Style="{StaticResource SidebarIcon}" Foreground="#0D9488"/>
                                         <TextBlock Text="System Info" VerticalAlignment="Center"/>
                                     </StackPanel>
                                 </Button>
                                 <Button Style="{StaticResource SidebarButtonStyle}" Click="Button_TaskManager_Click" ToolTip="Task Manager" Tag="task manager taskmgr processes">
                                     <StackPanel Orientation="Horizontal">
-                                        <TextBlock Text="&#xE90C;" FontFamily="Segoe MDL2 Assets" Width="22" FontSize="14"/>
+                                        <TextBlock Text="&#xE90C;" Style="{StaticResource SidebarIcon}" Foreground="#0D9488"/>
                                         <TextBlock Text="Task Manager" VerticalAlignment="Center"/>
                                     </StackPanel>
                                 </Button>
                                 <Button Style="{StaticResource SidebarButtonStyle}" Click="Button_ResMon_Click" ToolTip="Resource Monitor" Tag="resource monitor resmon cpu disk">
                                     <StackPanel Orientation="Horizontal">
-                                        <TextBlock Text="&#xE9D2;" FontFamily="Segoe MDL2 Assets" Width="22" FontSize="14"/>
+                                        <TextBlock Text="&#xE9D2;" Style="{StaticResource SidebarIcon}" Foreground="#0D9488"/>
                                         <TextBlock Text="Resource Monitor" VerticalAlignment="Center"/>
                                     </StackPanel>
                                 </Button>
                                 <Button Style="{StaticResource SidebarButtonStyle}" Click="Button_DeviceManager_Click" ToolTip="Device Manager" Tag="device manager hardware drivers">
                                     <StackPanel Orientation="Horizontal">
-                                        <TextBlock Text="&#xE7F4;" FontFamily="Segoe MDL2 Assets" Width="22" FontSize="14"/>
+                                        <TextBlock Text="&#xE7F4;" Style="{StaticResource SidebarIcon}" Foreground="#0D9488"/>
                                         <TextBlock Text="Device Manager" VerticalAlignment="Center"/>
                                     </StackPanel>
                                 </Button>
 
-                                <TextBlock Text="SYSTEM" Style="{StaticResource SidebarSectionStyle}"/>
+                                <TextBlock Text="SYSTEM" Style="{StaticResource SidebarSectionStyle}" Foreground="#D97706"/>
                                 <Button Style="{StaticResource SidebarButtonStyle}" Click="Button_RegEdit_Click" ToolTip="Registry Editor" Tag="registry editor regedit">
                                     <StackPanel Orientation="Horizontal">
-                                        <TextBlock Text="&#xE8A5;" FontFamily="Segoe MDL2 Assets" Width="22" FontSize="14"/>
+                                        <TextBlock Text="&#xE8A5;" Style="{StaticResource SidebarIcon}" Foreground="#D97706"/>
                                         <TextBlock Text="Registry Editor" VerticalAlignment="Center"/>
                                     </StackPanel>
                                 </Button>
                                 <Button Style="{StaticResource SidebarButtonStyle}" Click="Button_Services_Click" ToolTip="Windows Services" Tag="services windows">
                                     <StackPanel Orientation="Horizontal">
-                                        <TextBlock Text="&#xEA37;" FontFamily="Segoe MDL2 Assets" Width="22" FontSize="14"/>
+                                        <TextBlock Text="&#xEA37;" Style="{StaticResource SidebarIcon}" Foreground="#D97706"/>
                                         <TextBlock Text="Services" VerticalAlignment="Center"/>
                                     </StackPanel>
                                 </Button>
                                 <Button Style="{StaticResource SidebarButtonStyle}" Click="Button_EventViewer_Click" ToolTip="Event Viewer" Tag="event viewer logs">
                                     <StackPanel Orientation="Horizontal">
-                                        <TextBlock Text="&#xE7BA;" FontFamily="Segoe MDL2 Assets" Width="22" FontSize="14"/>
+                                        <TextBlock Text="&#xE7BA;" Style="{StaticResource SidebarIcon}" Foreground="#D97706"/>
                                         <TextBlock Text="Event Viewer" VerticalAlignment="Center"/>
                                     </StackPanel>
                                 </Button>
                                 <Button Style="{StaticResource SidebarButtonStyle}" Click="Button_ControlPanel_Click" ToolTip="Control Panel" Tag="control panel settings">
                                     <StackPanel Orientation="Horizontal">
-                                        <TextBlock Text="&#xE713;" FontFamily="Segoe MDL2 Assets" Width="22" FontSize="14"/>
+                                        <TextBlock Text="&#xE713;" Style="{StaticResource SidebarIcon}" Foreground="#D97706"/>
                                         <TextBlock Text="Control Panel" VerticalAlignment="Center"/>
                                     </StackPanel>
                                 </Button>
 
-                                <TextBlock Text="SHELL" Style="{StaticResource SidebarSectionStyle}"/>
+                                <TextBlock Text="SHELL" Style="{StaticResource SidebarSectionStyle}" Foreground="#0284C7"/>
                                 <Button Style="{StaticResource SidebarButtonStyle}" Click="Button_Network_Click" ToolTip="Network Connections" Tag="network connections ncpa adapter">
                                     <StackPanel Orientation="Horizontal">
-                                        <TextBlock Text="&#xE704;" FontFamily="Segoe MDL2 Assets" Width="22" FontSize="14"/>
+                                        <TextBlock Text="&#xE704;" Style="{StaticResource SidebarIcon}" Foreground="#0284C7"/>
                                         <TextBlock Text="Network" VerticalAlignment="Center"/>
                                     </StackPanel>
                                 </Button>
                                 <Button Style="{StaticResource SidebarButtonStyle}" Click="Button_Cmd_Click" ToolTip="Command Prompt (Admin)" Tag="command prompt cmd terminal shell">
                                     <StackPanel Orientation="Horizontal">
-                                        <TextBlock Text="&#xE756;" FontFamily="Segoe MDL2 Assets" Width="22" FontSize="14"/>
+                                        <TextBlock Text="&#xE756;" Style="{StaticResource SidebarIcon}" Foreground="#0284C7"/>
                                         <TextBlock Text="Command Prompt" VerticalAlignment="Center"/>
                                     </StackPanel>
                                 </Button>
                                 <Button Style="{StaticResource SidebarButtonStyle}" Click="Button_PowerShell_Click" ToolTip="PowerShell (Admin)" Tag="powershell pwsh terminal shell">
                                     <StackPanel Orientation="Horizontal">
-                                        <TextBlock Text="&#xE756;" FontFamily="Segoe MDL2 Assets" Width="22" FontSize="14"/>
+                                        <TextBlock Text="&#xE756;" Style="{StaticResource SidebarIcon}" Foreground="#4F46E5"/>
                                         <TextBlock Text="PowerShell" VerticalAlignment="Center"/>
                                     </StackPanel>
                                 </Button>

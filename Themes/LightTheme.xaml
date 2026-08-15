@@ -2,18 +2,18 @@
 <ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
                     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
 
-  <!-- Light palette with green accent -->
+  <!-- Light palette: darker greens/greys so body text stays readable on white -->
   <Color x:Key="AppBackgroundColor">#FFF3F6F3</Color>
   <Color x:Key="PrimaryTextColor">#FF0F172A</Color>
-  <Color x:Key="SecondaryTextColor">#FF64748B</Color>
+  <Color x:Key="SecondaryTextColor">#FF334155</Color>
   <Color x:Key="CardBackgroundColor">#FFF8FAF8</Color>
   <Color x:Key="CardBorderColor">#FFD5E0D8</Color>
-  <Color x:Key="AccentColor">#FF16A34A</Color>
+  <Color x:Key="AccentColor">#FF15803D</Color>
   <Color x:Key="SurfaceColor">#FFFFFFFF</Color>
-  <Color x:Key="MutedTextColor">#FF94A3B8</Color>
-  <Color x:Key="WarningColor">#FFD97706</Color>
-  <Color x:Key="SuccessColor">#FF16A34A</Color>
-  <Color x:Key="ErrorColor">#FFE11D48</Color>
-  <Color x:Key="AccentSoftColor">#1A16A34A</Color>
+  <Color x:Key="MutedTextColor">#FF475569</Color>
+  <Color x:Key="WarningColor">#FFB45309</Color>
+  <Color x:Key="SuccessColor">#FF15803D</Color>
+  <Color x:Key="ErrorColor">#FFBE123C</Color>
+  <Color x:Key="AccentSoftColor">#2415803D</Color>
 
 </ResourceDictionary>

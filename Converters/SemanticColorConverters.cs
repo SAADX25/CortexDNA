@@ -6,42 +6,51 @@ using WpfColor = System.Windows.Media.Color;
 
 namespace CortexDNA.Converters
 {
+    internal static class SemanticTheme
+    {
+        public static bool IsLight()
+        {
+            if (System.Windows.Application.Current?.Resources["AppBackgroundColor"] is WpfColor c)
+                return c.R > 0xC0 && c.G > 0xC0 && c.B > 0xC0;
+            return false;
+        }
+    }
+
     /// <summary>
     /// Converts a usage % (0-100) to a muted semantic brush.
-    /// Low  (&lt;60)  → Muted Teal   (#10B981) — calm, not neon
-    /// Mid  (60-80) → Amber        (#F59E0B) — warm, visible
-    /// High (&gt;80)  → Rose/Red     (#F43F5E) — alert, not violent
+    /// Low  (&lt;60)  → calm green
+    /// Mid  (60-80) → Amber
+    /// High (&gt;80)  → Rose/Red
+    /// Greens are darker in light theme so values stay readable on white cards.
     /// </summary>
     public class UsageToColorConverter : IValueConverter
     {
-        private static readonly SolidColorBrush LowBrush  = new SolidColorBrush(WpfColor.FromRgb(0x10, 0xB9, 0x81)); // Emerald-500
-        private static readonly SolidColorBrush MidBrush  = new SolidColorBrush(WpfColor.FromRgb(0xF5, 0x9E, 0x0B)); // Amber-500
-        private static readonly SolidColorBrush HighBrush = new SolidColorBrush(WpfColor.FromRgb(0xF4, 0x3F, 0x5E)); // Rose-500
+        private static readonly SolidColorBrush LowDark  = Freeze(WpfColor.FromRgb(0x22, 0xC5, 0x5E));
+        private static readonly SolidColorBrush LowLight = Freeze(WpfColor.FromRgb(0x15, 0x80, 0x3D));
+        private static readonly SolidColorBrush MidBrush  = Freeze(WpfColor.FromRgb(0xD9, 0x77, 0x06));
+        private static readonly SolidColorBrush HighBrush = Freeze(WpfColor.FromRgb(0xE1, 0x1D, 0x48));
 
-        static UsageToColorConverter()
+        private static SolidColorBrush Freeze(WpfColor color)
         {
-            LowBrush.Freeze();
-            MidBrush.Freeze();
-            HighBrush.Freeze();
+            var brush = new SolidColorBrush(color);
+            brush.Freeze();
+            return brush;
         }
 
         public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
         {
-            if (value is double d)
-                return d >= 80 ? HighBrush : d >= 60 ? MidBrush : LowBrush;
-
-            if (value is float f)
-                return f >= 80 ? HighBrush : f >= 60 ? MidBrush : LowBrush;
-
-            // Try parse string (e.g. "64.3 %" or "64.3")
-            if (value is string s)
+            double n = 0;
+            if (value is double d) n = d;
+            else if (value is float f) n = f;
+            else if (value is string s)
             {
                 s = s.Replace("%", "").Trim();
-                if (double.TryParse(s, NumberStyles.Any, CultureInfo.InvariantCulture, out double parsed))
-                    return parsed >= 80 ? HighBrush : parsed >= 60 ? MidBrush : LowBrush;
+                double.TryParse(s, NumberStyles.Any, CultureInfo.InvariantCulture, out n);
             }
 
-            return LowBrush;
+            if (n >= 80) return HighBrush;
+            if (n >= 60) return MidBrush;
+            return SemanticTheme.IsLight() ? LowLight : LowDark;
         }
 
         public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
@@ -49,22 +58,23 @@ namespace CortexDNA.Converters
     }
 
     /// <summary>
-    /// Converts a temperature value (°C) to a semantic Color.
-    /// Cool  (&lt;60°C)  → Cyan/Green  (#00E5CC)
-    /// Warm  (60-80°C) → Orange      (#FFA040)
-    /// Hot   (&gt;80°C)  → Crimson     (#FF3B5C)
+    /// Converts a temperature / metric value to a semantic Color.
+    /// Cool  (&lt;60°C)  → green
+    /// Warm  (60-80°C) → orange
+    /// Hot   (&gt;80°C)  → crimson
     /// </summary>
     public class TempToColorConverter : IValueConverter
     {
-        private static readonly SolidColorBrush CoolBrush = new SolidColorBrush(WpfColor.FromRgb(0x10, 0xB9, 0x81)); // Emerald-500
-        private static readonly SolidColorBrush WarmBrush = new SolidColorBrush(WpfColor.FromRgb(0xF5, 0x9E, 0x0B)); // Amber-500
-        private static readonly SolidColorBrush HotBrush  = new SolidColorBrush(WpfColor.FromRgb(0xF4, 0x3F, 0x5E)); // Rose-500
+        private static readonly SolidColorBrush CoolDark  = Freeze(WpfColor.FromRgb(0x22, 0xC5, 0x5E));
+        private static readonly SolidColorBrush CoolLight = Freeze(WpfColor.FromRgb(0x15, 0x80, 0x3D));
+        private static readonly SolidColorBrush WarmBrush = Freeze(WpfColor.FromRgb(0xD9, 0x77, 0x06));
+        private static readonly SolidColorBrush HotBrush  = Freeze(WpfColor.FromRgb(0xE1, 0x1D, 0x48));
 
-        static TempToColorConverter()
+        private static SolidColorBrush Freeze(WpfColor color)
         {
-            CoolBrush.Freeze();
-            WarmBrush.Freeze();
-            HotBrush.Freeze();
+            var brush = new SolidColorBrush(color);
+            brush.Freeze();
+            return brush;
         }
 
         public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
@@ -75,12 +85,13 @@ namespace CortexDNA.Converters
             else if (value is float f) temp = f;
             else if (value is string s)
             {
-                // Strip " °C", "°C", " C" etc.
                 s = s.Replace("°C", "").Replace("°", "").Replace("C", "").Trim();
                 double.TryParse(s, NumberStyles.Any, CultureInfo.InvariantCulture, out temp);
             }
 
-            return temp >= 80 ? HotBrush : temp >= 60 ? WarmBrush : CoolBrush;
+            if (temp >= 80) return HotBrush;
+            if (temp >= 60) return WarmBrush;
+            return SemanticTheme.IsLight() ? CoolLight : CoolDark;
         }
 
         public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)

@@ -5,12 +5,12 @@
   <!-- Black + green studio palette -->
   <Color x:Key="AppBackgroundColor">#FF050505</Color>
   <Color x:Key="PrimaryTextColor">#FFF5F5F5</Color>
-  <Color x:Key="SecondaryTextColor">#FF9CA3AF</Color>
+  <Color x:Key="SecondaryTextColor">#FFCBD5E1</Color>
   <Color x:Key="CardBackgroundColor">#FF0E0E0E</Color>
   <Color x:Key="CardBorderColor">#FF1F1F1F</Color>
   <Color x:Key="AccentColor">#FF22C55E</Color>
   <Color x:Key="SurfaceColor">#FF121212</Color>
-  <Color x:Key="MutedTextColor">#FF6B7280</Color>
+  <Color x:Key="MutedTextColor">#FF94A3B8</Color>
   <Color x:Key="WarningColor">#FFE8B84A</Color>
   <Color x:Key="SuccessColor">#FF22C55E</Color>
   <Color x:Key="ErrorColor">#FFF07178</Color>

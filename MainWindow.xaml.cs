@@ -141,7 +141,7 @@ namespace CortexDNA
             bool searching = query.Length > 0;
             string needle = query.ToLowerInvariant();
 
-            System.Windows.Controls.TextBlock? currentSection = null;
+            FrameworkElement? currentSection = null;
             bool sectionHasVisible = false;
             int visibleButtons = 0;
 
@@ -156,14 +156,6 @@ namespace CortexDNA
                 if (ReferenceEquals(child, NoToolsText))
                     continue;
 
-                if (child is System.Windows.Controls.TextBlock section)
-                {
-                    FlushSection();
-                    currentSection = section;
-                    sectionHasVisible = false;
-                    continue;
-                }
-
                 if (child is System.Windows.Controls.Button btn)
                 {
                     string haystack = $"{btn.Tag} {btn.ToolTip}".ToLowerInvariant();
@@ -174,6 +166,15 @@ namespace CortexDNA
                         sectionHasVisible = true;
                         visibleButtons++;
                     }
+                    continue;
+                }
+
+                if (child is FrameworkElement section
+                    && child is not System.Windows.Controls.Button)
+                {
+                    FlushSection();
+                    currentSection = section;
+                    sectionHasVisible = false;
                 }
             }
 
@@ -453,36 +454,50 @@ namespace CortexDNA
         private static double ClampOpacity(double value)
         {
             if (double.IsNaN(value) || double.IsInfinity(value)) return 100.0;
-            return Math.Max(20.0, Math.Min(100.0, value));
+            return Math.Max(45.0, Math.Min(100.0, value));
+        }
+
+        private static byte MixAlpha(double sliderPercent, double minAlphaPercent)
+        {
+            double t = (ClampOpacity(sliderPercent) - 45.0) / 55.0;
+            double alphaPercent = minAlphaPercent + t * (100.0 - minAlphaPercent);
+            return (byte)Math.Round(255.0 * alphaPercent / 100.0);
         }
 
         private void ApplyBackgroundOpacity()
         {
-            byte alpha = (byte)Math.Round(255.0 * ClampOpacity(_opacityPercent) / 100.0);
-            var color = System.Windows.Media.Color.FromArgb(
-                alpha,
-                _windowBackgroundColor.R,
-                _windowBackgroundColor.G,
-                _windowBackgroundColor.B);
+            double percent = ClampOpacity(_opacityPercent);
+            byte glassAlpha = MixAlpha(percent, 42);
+            byte cardAlpha = MixAlpha(percent, 90);
 
-            var brush = new SolidColorBrush(color);
-            SetThemeResource("AppBackgroundBrush", brush);
-            SetThemeResource("CardBackgroundBrush", new SolidColorBrush(System.Windows.Media.Color.FromArgb(
-                alpha, _cardBackgroundColor.R, _cardBackgroundColor.G, _cardBackgroundColor.B)));
-            SetThemeResource("CardBorderBrush", new SolidColorBrush(System.Windows.Media.Color.FromArgb(
-                alpha, _cardBorderColor.R, _cardBorderColor.G, _cardBorderColor.B)));
-            SetThemeResource("SurfaceBrush", new SolidColorBrush(System.Windows.Media.Color.FromArgb(
-                alpha, _surfaceColor.R, _surfaceColor.G, _surfaceColor.B)));
-            SetThemeResource("HoverBackgroundBrush", new SolidColorBrush(System.Windows.Media.Color.FromArgb(
-                alpha, LightenColor(_cardBackgroundColor, 0.10).R, LightenColor(_cardBackgroundColor, 0.10).G, LightenColor(_cardBackgroundColor, 0.10).B)));
-            SetThemeResource("PressedBackgroundBrush", new SolidColorBrush(System.Windows.Media.Color.FromArgb(
-                alpha, DarkenColor(_cardBackgroundColor, 0.08).R, DarkenColor(_cardBackgroundColor, 0.08).G, DarkenColor(_cardBackgroundColor, 0.08).B)));
-            SetThemeResource("BadgeBackgroundBrush", new SolidColorBrush(System.Windows.Media.Color.FromArgb(
-                alpha, _cardBorderColor.R, _cardBorderColor.G, _cardBorderColor.B)));
+            var glassColor = System.Windows.Media.Color.FromArgb(
+                glassAlpha, _windowBackgroundColor.R, _windowBackgroundColor.G, _windowBackgroundColor.B);
+            var cardColor = System.Windows.Media.Color.FromArgb(
+                cardAlpha, _cardBackgroundColor.R, _cardBackgroundColor.G, _cardBackgroundColor.B);
+            var cardBorder = System.Windows.Media.Color.FromArgb(
+                MixAlpha(percent, 75), _cardBorderColor.R, _cardBorderColor.G, _cardBorderColor.B);
+
+            // Sidebar, title bar, and footer stay solid.
+            SetThemeResource("SurfaceBrush", new SolidColorBrush(System.Windows.Media.Color.FromRgb(_surfaceColor.R, _surfaceColor.G, _surfaceColor.B)));
+            SetThemeResource("HoverBackgroundBrush", new SolidColorBrush(LightenColor(_cardBackgroundColor, 0.10)));
+            SetThemeResource("PressedBackgroundBrush", new SolidColorBrush(DarkenColor(_cardBackgroundColor, 0.08)));
+            SetThemeResource("BadgeBackgroundBrush", new SolidColorBrush(System.Windows.Media.Color.FromRgb(_cardBorderColor.R, _cardBorderColor.G, _cardBorderColor.B)));
+
+            // Only the area behind the dashboard cards becomes glass.
+            SetThemeResource("AppBackgroundBrush", new SolidColorBrush(glassColor));
+            SetThemeResource("CardBackgroundBrush", new SolidColorBrush(cardColor));
+            SetThemeResource("CardBorderBrush", new SolidColorBrush(cardBorder));
 
             this.Background = System.Windows.Media.Brushes.Transparent;
             if (RootChrome != null)
-                RootChrome.Background = brush;
+                RootChrome.Background = System.Windows.Media.Brushes.Transparent;
+
+            if (OpacityValueText != null)
+            {
+                OpacityValueText.Text = percent >= 96
+                    ? $"{percent:0}% · solid"
+                    : $"{percent:0}% · glass";
+            }
         }
 
         private static System.Windows.Media.Color ReadColor(ResourceDictionary dict, string key, System.Windows.Media.Color fallback)
@@ -540,7 +555,9 @@ namespace CortexDNA
                 SetThemeResource("AccentBrush", new SolidColorBrush(accent));
                 SetThemeResource("AccentBrush2", new SolidColorBrush(accent2));
                 SetThemeResource("AccentSoftBrush", new SolidColorBrush(accentSoft));
-                SetThemeResource("HoverBackgroundBrush", new SolidColorBrush(LightenColor(cardBg, 0.10)));
+                bool isLightTheme = bg.R > 0xC0;
+                SetThemeResource("HoverBackgroundBrush", new SolidColorBrush(
+                    isLightTheme ? DarkenColor(cardBg, 0.07) : LightenColor(cardBg, 0.10)));
                 SetThemeResource("PressedBackgroundBrush", new SolidColorBrush(DarkenColor(cardBg, 0.08)));
                 SetThemeResource("BadgeBackgroundBrush", new SolidColorBrush(cardBorder));
                 SetThemeResource("SuccessBrush", new SolidColorBrush(success));
