@@ -21,10 +21,16 @@ namespace CortexDNA.Core.Startup
                 throw new InvalidOperationException("Delay is only available for your user startup items.");
 
             var (path, args) = StartupPaths.SplitCommand(item.Command);
-            if (string.IsNullOrWhiteSpace(path))
-                throw new InvalidOperationException("Could not read this program's path.");
+            path = Environment.ExpandEnvironmentVariables(path);
+            if (!System.IO.Path.IsPathFullyQualified(path) || !System.IO.File.Exists(path) ||
+                !path.EndsWith(".exe", StringComparison.OrdinalIgnoreCase))
+                throw new InvalidOperationException("Delay requires a quoted, absolute executable path. Ambiguous commands cannot be delayed.");
 
-            RegisterLogonTask(StartupPaths.DelayTaskName(item.Id), path, args, item.Name);
+            string directory = Environment.ExpandEnvironmentVariables(item.WorkingDirectory);
+            if (!string.IsNullOrEmpty(directory) &&
+                (!System.IO.Path.IsPathFullyQualified(directory) || !System.IO.Directory.Exists(directory)))
+                throw new InvalidOperationException("The shortcut's working directory is unavailable.");
+            RegisterLogonTask(StartupPaths.DelayTaskName(item.Id), path, args, item.Name, directory);
             item.IsDelayed = true;
         }
 
@@ -70,11 +76,14 @@ namespace CortexDNA.Core.Startup
             return names;
         }
 
-        private static void RegisterLogonTask(string taskName, string exe, string args, string displayName)
+        private static void RegisterLogonTask(string taskName, string exe, string args, string displayName, string workingDirectory)
         {
             object? service = null;
             object? folder = null;
             object? definition = null;
+            object? triggerObject = null;
+            object? actionObject = null;
+            object? registered = null;
             try
             {
                 service = Connect();
@@ -90,23 +99,28 @@ namespace CortexDNA.Core.Startup
                 def.Settings.StopIfGoingOnBatteries = false;
                 def.Settings.AllowDemandStart = true;
                 def.Principal.LogonType = 3; // TASK_LOGON_INTERACTIVE_TOKEN
+                using var identity = System.Security.Principal.WindowsIdentity.GetCurrent();
+                def.Principal.UserId = identity.User!.Value;
                 def.Principal.RunLevel = 0;  // LUA
 
                 dynamic trigger = def.Triggers.Create(9); // TASK_TRIGGER_LOGON
+                triggerObject = trigger;
                 trigger.Delay = $"PT{StartupPaths.DelaySeconds}S";
-                trigger.UserId = Environment.UserDomainName + "\\" + Environment.UserName;
+                trigger.UserId = identity.User!.Value;
                 trigger.Enabled = true;
 
                 dynamic action = def.Actions.Create(0); // TASK_ACTION_EXEC
+                actionObject = action;
                 action.Path = exe;
+                if (!string.IsNullOrEmpty(workingDirectory)) action.WorkingDirectory = workingDirectory;
                 if (!string.IsNullOrWhiteSpace(args))
                     action.Arguments = args;
 
-                ((dynamic)folder).RegisterTaskDefinition(
+                registered = ((dynamic)folder).RegisterTaskDefinition(
                     taskName,
                     definition,
                     6,    // TASK_CREATE_OR_UPDATE
-                    null,
+                    identity.User!.Value,
                     null,
                     3);   // TASK_LOGON_INTERACTIVE_TOKEN
             }
@@ -117,6 +131,9 @@ namespace CortexDNA.Core.Startup
             }
             finally
             {
+                StartupCom.Release(registered);
+                StartupCom.Release(actionObject);
+                StartupCom.Release(triggerObject);
                 StartupCom.Release(definition);
                 StartupCom.Release(folder);
                 StartupCom.Release(service);
@@ -137,6 +154,7 @@ namespace CortexDNA.Core.Startup
             catch (Exception ex)
             {
                 Logger.Log($"Startup delay delete skipped: {ex.Message}");
+                throw new InvalidOperationException("Could not remove the delay task. Original startup state was retained.", ex);
             }
             finally
             {
@@ -171,7 +189,8 @@ namespace CortexDNA.Core.Startup
             {
                 try { root.CreateFolder("CortexDNA"); } catch { }
                 dynamic cortex = service.GetFolder("\\CortexDNA");
-                try { cortex.CreateFolder("StartupDelay"); } catch { }
+                try { try { cortex.CreateFolder("StartupDelay"); } catch { } }
+                finally { StartupCom.Release(cortex); }
                 return service.GetFolder(path);
             }
             finally

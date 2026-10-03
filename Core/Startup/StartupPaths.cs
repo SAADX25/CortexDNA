@@ -1,4 +1,6 @@
 using System.IO;
+using System.Security.Cryptography;
+using System.Text;
 using Microsoft.Win32;
 using CortexDNA.Models;
 
@@ -42,7 +44,9 @@ namespace CortexDNA.Core.Startup
 
         public static string DelayTaskName(string id)
         {
-            string hash = Math.Abs(id.GetHashCode(StringComparison.OrdinalIgnoreCase)).ToString("X8");
+            id = id.ToUpperInvariant();
+            using var identity = System.Security.Principal.WindowsIdentity.GetCurrent();
+            string hash = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(id + "|" + identity.User!.Value)))[..24];
             string safe = new string(id.Where(char.IsLetterOrDigit).Take(24).ToArray());
             if (string.IsNullOrEmpty(safe)) safe = "Item";
             return $"Delay_{safe}_{hash}";
@@ -50,23 +54,8 @@ namespace CortexDNA.Core.Startup
 
         public static string? ExtractExecutable(string command)
         {
-            if (string.IsNullOrWhiteSpace(command))
-                return null;
-
-            command = command.Trim();
-            if (command.StartsWith('"'))
-            {
-                int end = command.IndexOf('"', 1);
-                if (end > 1)
-                    return command[1..end];
-            }
-
-            int exe = command.IndexOf(".exe", StringComparison.OrdinalIgnoreCase);
-            if (exe >= 0)
-                return command[..(exe + 4)].Trim('"');
-
-            string first = command.Split(' ', 2)[0].Trim('"');
-            return string.IsNullOrWhiteSpace(first) ? null : first;
+            var (path, _) = SplitCommand(command);
+            return string.IsNullOrEmpty(path) ? null : path;
         }
 
         public static (string Path, string Arguments) SplitCommand(string command)
@@ -77,17 +66,17 @@ namespace CortexDNA.Core.Startup
                 int end = command.IndexOf('"', 1);
                 if (end > 1)
                 {
-                    string path = command[1..end];
+                    string path = Environment.ExpandEnvironmentVariables(command[1..end]);
                     string args = command[(end + 1)..].Trim();
                     return (path, args);
                 }
+                return (string.Empty, string.Empty); // Unclosed quote: never guess a launch target.
             }
-
-            int space = command.IndexOf(' ');
+            int space = command.IndexOfAny([' ', '\t']);
             if (space < 0)
-                return (command.Trim('"'), string.Empty);
+                return (Environment.ExpandEnvironmentVariables(command.Trim('"')), string.Empty);
 
-            return (command[..space].Trim('"'), command[(space + 1)..].Trim());
+            return (Environment.ExpandEnvironmentVariables(command[..space].Trim('"')), command[(space + 1)..].Trim());
         }
 
         public static string LocationLabel(StartupLocationKind location) => location switch

@@ -15,12 +15,14 @@ namespace CortexDNA;
 public partial class App : System.Windows.Application
 {
     private static Mutex? _mutex = null;
+    private RegisteredWaitHandle? _signalRegistration;
     private static EventWaitHandle? _eventWaitHandle = null;
 
     protected override void OnStartup(StartupEventArgs e)
     {
-        const string mutexName = "Global\\CortexDNA_Mutex";
-        const string eventName = "Global\\CortexDNA_Signal";
+        string scope = System.Security.Principal.WindowsIdentity.GetCurrent().User!.Value;
+        string mutexName = "Local\\CortexDNA_Mutex_" + scope;
+        string eventName = "Local\\CortexDNA_Signal_" + scope;
 
         bool createdNew;
         _mutex = new Mutex(true, mutexName, out createdNew);
@@ -36,42 +38,24 @@ public partial class App : System.Windows.Application
         }
 
         // Start a thread to listen for signals from subsequent instances
-        Task.Run(() =>
+        _signalRegistration = ThreadPool.RegisterWaitForSingleObject(_eventWaitHandle, (_, _) =>
         {
-            while (true)
+            if (Dispatcher.HasShutdownStarted) return;
+            Dispatcher.BeginInvoke(() =>
             {
-                _eventWaitHandle.WaitOne();
-                Dispatcher.Invoke(() =>
-                {
-                    var mw = System.Windows.Application.Current.MainWindow;
-                    if (mw != null)
-                    {
-                        if (mw.WindowState == WindowState.Minimized)
-                        {
-                            mw.Show(); // Ensure it's visible (handling the tray case)
-                            mw.WindowState = WindowState.Normal;
-                        }
-                        
-                        // Handle the case where it's just hidden (Tray only) but not minimized state-wise
-                        if (!mw.IsVisible)
-                        {
-                            mw.Show();
-                        }
-
-                        mw.Activate();
-                        mw.Topmost = true;  // Temporarily force top
-                        mw.Topmost = false;
-                        mw.Focus();
-                    }
-                });
-            }
-        });
-
+                if (Dispatcher.HasShutdownStarted) return;
+                var window = MainWindow;
+                if (window == null) return;
+                window.Show();
+                window.WindowState = WindowState.Normal;
+                window.Activate();
+            });
+        }, null, Timeout.Infinite, false);
         // Use GPU/hardware rendering for smooth UI (SoftwareOnly caused constant lag with shadows)
         RenderOptions.ProcessRenderMode = RenderMode.Default;
         
         // Log Startup
-        Logger.Log("Application Starting (v1.5.0) - RenderMode: Default");
+        Logger.Log("Application Starting (v2.0.0) - RenderMode: Default");
 
         base.OnStartup(e);
 
@@ -84,12 +68,13 @@ public partial class App : System.Windows.Application
         DispatcherUnhandledException += (s, args) =>
         {
             Logger.Log(args.Exception);
-            args.Handled = true; // Prevent crash if possible
+            // Leave unexpected UI failures unhandled; suppressing them can retain corrupt state.
         };
     }
 
     protected override void OnExit(ExitEventArgs e)
     {
+        _signalRegistration?.Unregister(null);
         if (_mutex != null)
         {
             _mutex.Dispose();

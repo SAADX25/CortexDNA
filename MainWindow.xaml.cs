@@ -21,7 +21,7 @@ namespace CortexDNA
 {
     public partial class MainWindow : Window
     {
-        private NotifyIcon _notifyIcon;
+        private NotifyIcon? _notifyIcon;
         private bool _isExplicitExit = false;
         private DispatcherTimer? _themeSaveDebounceTimer;
         private bool _settingsReady;
@@ -227,7 +227,7 @@ namespace CortexDNA
             {
                 _notifyIcon = new NotifyIcon
                 {
-                    Icon = System.Drawing.Icon.ExtractAssociatedIcon(Process.GetCurrentProcess().MainModule.FileName),
+                    Icon = System.Drawing.Icon.ExtractAssociatedIcon(Environment.ProcessPath!),
                     Visible = true,
                     Text = "Cortex DNA"
                 };
@@ -262,19 +262,6 @@ namespace CortexDNA
             {
                 Core.Logger.Log($"Tray Init Failed: {ex.Message}");
             }
-        }
-
-        private System.Drawing.Image GenerateColoredCircle(System.Drawing.Color color)
-        {
-            var bmp = new Bitmap(16, 16);
-            using (var g = Graphics.FromImage(bmp))
-            {
-                using (var brush = new SolidBrush(color))
-                {
-                    g.FillEllipse(brush, 4, 4, 8, 8);
-                }
-            }
-            return bmp;
         }
 
         private void OpenUninstallSettings()
@@ -328,7 +315,9 @@ namespace CortexDNA
             }
         }
 
-        protected override void OnClosing(System.ComponentModel.CancelEventArgs e)
+        private bool _shutdownComplete;
+        private bool _shutdownStarted;
+        protected override async void OnClosing(System.ComponentModel.CancelEventArgs e)
         {
             if (!_isExplicitExit)
             {
@@ -337,6 +326,18 @@ namespace CortexDNA
             }
             else
             {
+                if (!_shutdownComplete && DataContext is MainViewModel shutdownVm)
+                {
+                    e.Cancel = true;
+                    if (_shutdownStarted) return;
+                    _shutdownStarted = true;
+                    IsEnabled = false;
+                    await shutdownVm.HardwareVM.ShutdownAsync();
+                    await shutdownVm.StartupVM.ShutdownAsync();
+                    _shutdownComplete = true;
+                    Close();
+                    return;
+                }
                 SaveThemeSettings();
                 _notifyIcon?.Dispose();
                 base.OnClosing(e);
@@ -345,6 +346,8 @@ namespace CortexDNA
 
         protected override void OnClosed(EventArgs e)
         {
+            _themeSaveDebounceTimer?.Stop();
+            if (DataContext is MainViewModel mainVm) mainVm.PropertyChanged -= MainViewModel_PropertyChanged;
             base.OnClosed(e);
             if (DataContext is MainViewModel vm)
             {
@@ -516,6 +519,8 @@ namespace CortexDNA
         {
             try
             {
+                if (themeFileName is not ("DarkTheme.xaml" or "LightTheme.xaml"))
+                    themeFileName = "DarkTheme.xaml";
                 var uri = new Uri($"Themes/{themeFileName}", UriKind.Relative);
                 var dict = new ResourceDictionary { Source = uri };
 
@@ -611,7 +616,7 @@ namespace CortexDNA
             catch { }
         }
 
-        private ThemeSettings LoadThemeSettings()
+        private ThemeSettings? LoadThemeSettings()
         {
             try
             {
@@ -625,7 +630,7 @@ namespace CortexDNA
 
         private class ThemeSettings
         {
-            public string ThemeFileName { get; set; }
+            public string ThemeFileName { get; set; } = "DarkTheme.xaml";
             public double OpacityPercent { get; set; }
         }
 
@@ -633,6 +638,9 @@ namespace CortexDNA
         {
             try
             {
+                command = command.Equals("powershell.exe", StringComparison.OrdinalIgnoreCase)
+                    ? Path.Combine(Environment.SystemDirectory, @"WindowsPowerShell\v1.0\powershell.exe")
+                    : Path.Combine(Environment.SystemDirectory, command);
                 var psi = new System.Diagnostics.ProcessStartInfo(command, args)
                 {
                     UseShellExecute = true
@@ -705,29 +713,6 @@ namespace CortexDNA
 
         // --- Interaction Logic for Utility Buttons ---
         // (Event handlers removed as they are no longer used by Sidebar)
-
-        private async void CopyBiosInfo_Click(object sender, RoutedEventArgs e)
-        {
-            if (DataContext is MainViewModel vm && !string.IsNullOrEmpty(vm.HardwareVM.SystemInfo.BiosInfo))
-            {
-                try
-                {
-                    System.Windows.Clipboard.SetText(vm.HardwareVM.SystemInfo.BiosInfo);
-                    
-                    // Show "Copied!" feedback - Assuming TxtCopyFeedback exists in XAML but might be named differently or removed in recent edits.
-                    // Checking XAML history, it seems TxtCopyFeedback was part of the old layout.
-                    // We should remove this if the UI element is gone, or ensure it exists.
-                    // For now, let's wrap it in a null check if we can access it, or just remove the feedback for safety if the element is missing.
-                    // However, in code-behind, we can't easily check for null if it's not generated.
-                    // Re-checking XAML: The new layout has individual buttons but maybe no feedback text block named TxtCopyFeedback?
-                    // The old TxtCopyFeedback was inside the OS & BIOS Card stackpanel.
-                    // The new layout has buttons in a Grid.
-                    // Let's remove the feedback logic for now to fix the build error, or re-add the textblock to XAML.
-                    // User asked for "Professional Deployment", stability is key. Removing broken UI logic is safer.
-                }
-                catch { }
-            }
-        }
 
         private void TitleBar_MouseDown(object sender, System.Windows.Input.MouseButtonEventArgs e)
         {

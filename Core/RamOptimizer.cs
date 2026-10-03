@@ -3,6 +3,8 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Runtime.InteropServices;
 using System.Threading.Tasks;
+using System.Threading;
+using System.Security.Principal;
 using CortexDNA.Models;
 
 namespace CortexDNA.Core
@@ -23,6 +25,14 @@ namespace CortexDNA.Core
         private const uint PROCESS_QUERY_LIMITED_INFORMATION = 0x1000;
         private const uint PROCESS_SET_QUOTA = 0x0100;
 
+        [DllImport("advapi32.dll", SetLastError = true)]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        private static extern bool OpenProcessToken(IntPtr process, uint access, out IntPtr token);
+        [DllImport("user32.dll")]
+        private static extern IntPtr GetForegroundWindow();
+        [DllImport("user32.dll")]
+        private static extern uint GetWindowThreadProcessId(IntPtr window, out uint pid);
+
         // Critical OS / security / anti-cheat — never touch
         private static readonly HashSet<string> ExcludedProcesses = new(StringComparer.OrdinalIgnoreCase)
         {
@@ -38,24 +48,18 @@ namespace CortexDNA.Core
         /// Trims process working sets. Reclaimed memory is often temporary —
         /// Windows may page data back in when apps need it.
         /// </summary>
-        public static Task<RamOptimizeResult> OptimizeMemoryAsync()
+        public static Task<RamOptimizeResult> OptimizeMemoryAsync(CancellationToken cancellationToken = default)
         {
-            return Task.Run(OptimizeMemory);
+            return Task.Run(() => OptimizeMemory(cancellationToken), cancellationToken);
         }
 
-        private static RamOptimizeResult OptimizeMemory()
+        private static RamOptimizeResult OptimizeMemory(CancellationToken cancellationToken)
         {
             float before = GetAvailableMb();
             int touched = 0;
 
             try
             {
-                try
-                {
-                    GC.Collect(GC.MaxGeneration, GCCollectionMode.Optimized, blocking: false);
-                }
-                catch { }
-
                 Process[] processes;
                 try
                 {
@@ -74,12 +78,19 @@ namespace CortexDNA.Core
                 }
 
                 int currentPid = Environment.ProcessId;
+                using var current = Process.GetCurrentProcess();
+                using var identity = WindowsIdentity.GetCurrent();
+                GetWindowThreadProcessId(GetForegroundWindow(), out uint foregroundPid);
 
+                try
+                {
                 foreach (Process proc in processes)
                 {
+                    cancellationToken.ThrowIfCancellationRequested();
                     try
                     {
-                        if (proc.Id == 0 || proc.Id == 4 || proc.Id == currentPid)
+                        if (proc.Id == 0 || proc.Id == 4 || proc.Id == currentPid || proc.Id == foregroundPid ||
+                            proc.SessionId != current.SessionId)
                             continue;
 
                         string name;
@@ -95,6 +106,13 @@ namespace CortexDNA.Core
 
                         try
                         {
+                            if (!OpenProcessToken(handle, 8, out IntPtr token)) continue;
+                            try
+                            {
+                                using var owner = new WindowsIdentity(token);
+                                if (owner.User != identity.User) continue;
+                            }
+                            finally { CloseHandle(token); }
                             if (EmptyWorkingSet(handle))
                                 touched++;
                         }
@@ -112,6 +130,8 @@ namespace CortexDNA.Core
                         try { proc.Dispose(); } catch { }
                     }
                 }
+                }
+                finally { foreach (var process in processes) process.Dispose(); }
 
                 float after = GetAvailableMb();
                 return new RamOptimizeResult
@@ -122,6 +142,7 @@ namespace CortexDNA.Core
                     Success = true
                 };
             }
+            catch (OperationCanceledException) { throw; }
             catch (Exception ex)
             {
                 Logger.Log(ex);

@@ -29,6 +29,10 @@ namespace CortexDNA.Core.Startup
                         // Some system processes block MainModule even as admin.
                     }
                 }
+                catch (Exception ex) when (ex is InvalidOperationException or System.ComponentModel.Win32Exception)
+                {
+                    // The process can exit between enumeration and property access.
+                }
                 finally
                 {
                     process.Dispose();

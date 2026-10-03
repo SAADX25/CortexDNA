@@ -556,7 +556,7 @@
                                         <TextBlock Text="Command Prompt" VerticalAlignment="Center"/>
                                     </StackPanel>
                                 </Button>
-                                <Button Style="{StaticResource SidebarButtonStyle}" Click="Button_PowerShell_Click" ToolTip="PowerShell (Admin)" Tag="powershell pwsh terminal shell">
+                                <Button Style="{StaticResource SidebarButtonStyle}" Click="Button_PowerShell_Click" ToolTip="PowerShell" Tag="powershell pwsh terminal shell">
                                     <StackPanel Orientation="Horizontal">
                                         <TextBlock Text="&#xE756;" Style="{StaticResource SidebarIcon}" Foreground="#4F46E5"/>
                                         <TextBlock Text="PowerShell" VerticalAlignment="Center"/>

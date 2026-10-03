@@ -18,8 +18,7 @@ namespace CortexDNA.Core.Startup
             AddRunKey(items, RegistryHive.CurrentUser, StartupPaths.UserRun, StartupLocationKind.CurrentUserRun);
             AddRunKey(items, RegistryHive.LocalMachine, StartupPaths.MachineRun, StartupLocationKind.LocalMachineRun);
             AddRunKey(items, RegistryHive.LocalMachine, StartupPaths.MachineRun32, StartupLocationKind.LocalMachineRun32);
-            AddRunKey(items, RegistryHive.CurrentUser, @"Software\Microsoft\Windows\CurrentVersion\Policies\Explorer\Run", StartupLocationKind.CurrentUserRun);
-            AddRunKey(items, RegistryHive.LocalMachine, @"Software\Microsoft\Windows\CurrentVersion\Policies\Explorer\Run", StartupLocationKind.LocalMachineRun);
+            // Policy Run entries are governed by policy, not StartupApproved; do not present a misleading toggle.
             AddStartupFolder(items, StartupPaths.UserStartupFolder, StartupLocationKind.UserStartupFolder);
             AddStartupFolder(items, StartupPaths.CommonStartupFolder, StartupLocationKind.CommonStartupFolder);
             StartupPackagedCatalog.AddTo(items);
@@ -71,8 +70,8 @@ namespace CortexDNA.Core.Startup
                 foreach (string file in Directory.EnumerateFiles(folder, "*.lnk"))
                 {
                     string name = Path.GetFileNameWithoutExtension(file);
-                    string command = ResolveShortcut(file) ?? file;
-                    AddItem(items, name, command, location, Path.GetFileName(file), iconFallback: file);
+                    string command = ResolveShortcut(file, out string workingDirectory);
+                    AddItem(items, name, command, location, Path.GetFileName(file), iconFallback: file, workingDirectory);
                 }
             }
             catch (Exception ex)
@@ -87,7 +86,7 @@ namespace CortexDNA.Core.Startup
             string command,
             StartupLocationKind location,
             string approvalName,
-            string? iconFallback)
+            string? iconFallback, string workingDirectory = "")
         {
             string id = StartupPaths.MakeId(location, approvalName);
             if (items.ContainsKey(id))
@@ -100,6 +99,7 @@ namespace CortexDNA.Core.Startup
                 Id = id,
                 Name = name,
                 Command = command,
+                WorkingDirectory = workingDirectory,
                 ExecutablePath = exe ?? string.Empty,
                 IconPath = iconPath,
                 Location = location,
@@ -119,8 +119,9 @@ namespace CortexDNA.Core.Startup
             return exe ?? string.Empty;
         }
 
-        private static string ResolveShortcut(string shortcutPath)
+        private static string ResolveShortcut(string shortcutPath, out string workingDirectory)
         {
+            workingDirectory = string.Empty;
             try
             {
                 Type? type = Type.GetTypeFromProgID("WScript.Shell");
@@ -130,8 +131,14 @@ namespace CortexDNA.Core.Startup
                 try
                 {
                     dynamic link = shell.CreateShortcut(shortcutPath);
-                    string target = (link.TargetPath as string) ?? string.Empty;
-                    string args = (link.Arguments as string) ?? string.Empty;
+                    string target, args;
+                    try
+                    {
+                        target = (link.TargetPath as string) ?? string.Empty;
+                        args = (link.Arguments as string) ?? string.Empty;
+                        workingDirectory = (link.WorkingDirectory as string) ?? string.Empty;
+                    }
+                    finally { StartupCom.Release(link); }
                     if (string.IsNullOrWhiteSpace(target))
                         return shortcutPath;
                     return string.IsNullOrWhiteSpace(args) ? $"\"{target}\"" : $"\"{target}\" {args}";

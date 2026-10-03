@@ -29,6 +29,7 @@ namespace CortexDNA.Models
         public required string Id { get; init; }
         public required string Name { get; init; }
         public required string Command { get; init; }
+        public string WorkingDirectory { get; init; } = string.Empty;
         public string ExecutablePath { get; init; } = string.Empty;
         public string IconPath { get; init; } = string.Empty;
         public bool IsRunning { get; set; }

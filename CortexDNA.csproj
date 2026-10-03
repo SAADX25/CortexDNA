@@ -28,6 +28,9 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <Compile Remove="Tests\**\*.cs" />
+    <EmbeddedResource Remove="Tests\**\*" />
+    <None Remove="Tests\**\*" />
     <PackageReference Include="LibreHardwareMonitorLib" Version="0.9.5" />
     <PackageReference Include="System.Management" Version="10.0.2" />
   </ItemGroup>

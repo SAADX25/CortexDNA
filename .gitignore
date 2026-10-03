@@ -1,2 +1,15 @@
-/bin
-/obj
+**/bin/
+**/obj/
+.vs/
+.idea/
+*.user
+*.suo
+*.log
+log.txt*
+TestResults/
+artifacts/
+__pycache__/
+*.py[cod]
+*.tmp
+*.bak
+*_backup.*

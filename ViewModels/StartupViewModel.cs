@@ -89,7 +89,7 @@ namespace CortexDNA.ViewModels
             ? $"{ms / 1000.0:0.0}s"
             : "—";
 
-        public string StateText => IsEnabled
+        public string StateText => IsDelayed ? "Starts 30s after logon" : IsEnabled
             ? (IsRunning ? "Enabled · open now" : IsDelayed ? "Starts 30s after logon" : "Enabled")
             : (IsRunning ? "Disabled · still open now" : "Disabled");
 
@@ -168,11 +168,15 @@ namespace CortexDNA.ViewModels
         }
     }
 
-    public sealed class StartupViewModel : ViewModelBase
+    public sealed class StartupViewModel : ViewModelBase, IDisposable
     {
         private readonly StartupFeatureService _service = new();
         private bool _isLoading;
         private bool _loaded;
+        private bool _disposed;
+        private Task _loadTask = Task.CompletedTask;
+        public void Dispose() => _disposed = true;
+        public async Task ShutdownAsync() { _disposed = true; await _loadTask; }
         private string _statusMessage = "Ready";
         private string _bootSummary = "Measuring last boot…";
         private string _diagnosticsNote = string.Empty;
@@ -223,16 +227,21 @@ namespace CortexDNA.ViewModels
 
         public async void EnsureLoaded()
         {
-            if (_isLoading) return;
+            if (_disposed || _isLoading) return;
             if (_loaded && DateTime.UtcNow - _lastLoadUtc < TimeSpan.FromSeconds(2))
                 return;
             await LoadAsync(force: true);
         }
 
-        public async Task LoadAsync(bool force)
+        public Task LoadAsync(bool force)
         {
-            if (_isLoading) return;
-            if (_loaded && !force) return;
+            if (_disposed || _isLoading || (_loaded && !force)) return Task.CompletedTask;
+            return _loadTask = LoadCoreAsync();
+        }
+
+        private async Task LoadCoreAsync()
+        {
+            if (_disposed || _isLoading) return;
 
             IsLoading = true;
             StatusMessage = "Reading startup programs…";
@@ -240,6 +249,7 @@ namespace CortexDNA.ViewModels
             try
             {
                 var snapshot = await _service.LoadAsync().ConfigureAwait(true);
+                if (_disposed) return;
                 Items.Clear();
                 foreach (var item in snapshot.Items)
                 {

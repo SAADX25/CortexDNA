@@ -44,22 +44,31 @@ namespace CortexDNA.Core.Startup
 
         public void SetEnabled(StartupItem item, bool enabled)
         {
-            if (enabled && item.IsDelayed)
-                _delay.RemoveDelay(item);
-
+            if (item.IsDelayed && enabled) { RemoveDelay(item); return; }
+            if (item.IsDelayed) _delay.RemoveDelay(item);
             _approval.SetEnabled(item, enabled);
         }
 
         public void Delay(StartupItem item)
         {
             _delay.Delay(item);
-            _approval.SetEnabled(item, false);
+            try { _approval.SetEnabled(item, false); }
+            catch
+            {
+                _delay.RemoveDelay(item);
+                throw;
+            }
         }
 
         public void RemoveDelay(StartupItem item)
         {
-            _delay.RemoveDelay(item);
             _approval.SetEnabled(item, true);
+            try { _delay.RemoveDelay(item); }
+            catch
+            {
+                _approval.SetEnabled(item, false);
+                throw;
+            }
         }
     }
 }

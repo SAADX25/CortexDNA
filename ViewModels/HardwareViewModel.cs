@@ -5,6 +5,7 @@ using System.IO;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using System.Threading;
 using System.Windows;
 using System.Windows.Threading;
 using System.Management;
@@ -25,9 +26,17 @@ namespace CortexDNA.ViewModels
     {
         private readonly Computer _computer;
         private DispatcherTimer _timer;
-        private bool _disposed = false;
+        private volatile bool _disposed;
+        private readonly CancellationTokenSource _lifetime = new();
+        private readonly object _hardwareLock = new();
+        private Task _initialization = Task.CompletedTask;
+        private Task _refreshTask = Task.CompletedTask;
+        private Task _boostTask = Task.CompletedTask;
+        private Task _cleanupTask = Task.CompletedTask;
+        private Task? _shutdownTask;
+        private long _networkSampleTimestamp;
         private PerformanceCounter? _cpuPerfCounter;
-        private double _baseClockGHz = 3.2; // Default for i7-8700
+        private double _baseClockGHz; // Unknown until measured; never assume a CPU model.
         private long _prevBytesReceived = 0;
         private long _prevBytesSent = 0;
         private double _totalRamBytes = 0;
@@ -133,7 +142,7 @@ namespace CortexDNA.ViewModels
 
         public string PrivilegeText => IsAdmin ? "Administrator" : "Standard user";
         private bool _isGameModeActive = false;
-        private bool _hardwareReady = false;
+        private volatile bool _hardwareReady;
         private int _gameCheckCounter = 0;
         private readonly HashSet<string> _gameProcessSet;
         private readonly DiskCleanupService _diskCleanup = new();
@@ -184,12 +193,13 @@ namespace CortexDNA.ViewModels
             };
 
             // 2. Background Refresh (Slow, but ensures data is fresh) - Step 2 & 3
-            Task.Run(InitializeAndRefresh);
+
 
             // Timer starts only after LibreHardwareMonitor is open (_hardwareReady)
             _timer = new DispatcherTimer(DispatcherPriority.Background);
             _timer.Interval = TimeSpan.FromSeconds(1);
             _timer.Tick += (s, e) => RefreshData();
+            _initialization = Task.Run(InitializeAndRefresh);
         }
 
         private void CopyToClipboard(string text, string label)
@@ -229,14 +239,14 @@ namespace CortexDNA.ViewModels
 
         private async Task ResetStatusAfterDelayAsync()
         {
-            await Task.Delay(2000).ConfigureAwait(true);
-            StatusMessage = "Monitoring Active";
+            try { await Task.Delay(2000, _lifetime.Token); if (!_disposed) StatusMessage = "Monitoring Active"; } catch (OperationCanceledException) { }
         }
 
         public void PauseMonitoring()
         {
-            if (_isPaused) return;
+            if (_disposed || _isPaused) return;
             _isPaused = true;
+            _networkSampleTimestamp = 0;
             _timer?.Stop();
             // Optional: Close hardware handles if needed, but keeping them open is faster for resume
             Logger.Log("Monitoring Paused (Tray/Minimized)");
@@ -244,9 +254,9 @@ namespace CortexDNA.ViewModels
 
         public void ResumeMonitoring()
         {
-            if (!_isPaused) return;
+            if (_disposed || !_isPaused) return;
             _isPaused = false;
-            _timer?.Start();
+            if (_hardwareReady) _timer?.Start();
             Logger.Log("Monitoring Resumed");
             
             // Force immediate update
@@ -260,38 +270,36 @@ namespace CortexDNA.ViewModels
 
 
 
-        private async Task InitializeAndRefresh()
+        private void InvokeUi(Action action)
         {
-            // 3. Delay the Background Scan Slightly (Stabilize WMI/Services)
-            await Task.Delay(1500);
-
-            try
-            {
-                _computer.Open();
-                _hardwareReady = true;
-                System.Windows.Application.Current?.Dispatcher.Invoke(() =>
-                {
-                    StatusMessage = "Monitoring Active";
-                    if (!_isPaused)
-                        _timer?.Start();
-                });
-            }
-            catch (Exception ex)
-            {
-                System.Windows.Application.Current?.Dispatcher.Invoke(() => StatusMessage = $"Error: {ex.Message} (Run as Admin?)");
-            }
-
-            // Initialize Performance Counters (runs on background thread — no UI writes)
-            await Task.Run(() => InitializeCounters());
-
-            // Fetch WMI Info and Save Cache (runs on background thread)
-            // Each property update inside is dispatched back to the UI thread.
-            await Task.Run(() => RefreshSystemInfo());
-            
-            // Initial Scan (after counters/WMI are ready)
-            System.Windows.Application.Current?.Dispatcher.Invoke(() => RefreshData());
+            var dispatcher = System.Windows.Application.Current?.Dispatcher;
+            if (_disposed || dispatcher == null || dispatcher.HasShutdownStarted) return;
+            dispatcher.Invoke(() => { if (!_disposed) action(); });
         }
 
+        private async Task InitializeAndRefresh()
+        {
+            try
+            {
+                await Task.Delay(1500, _lifetime.Token).ConfigureAwait(false);
+                lock (_hardwareLock)
+                {
+                    _lifetime.Token.ThrowIfCancellationRequested();
+                    _computer.Open();
+                    InitializeCounters();
+                }
+                _lifetime.Token.ThrowIfCancellationRequested();
+                RefreshSystemInfo();
+                InvokeUi(() => {
+                    _hardwareReady = true;
+                    StatusMessage = "Monitoring Active";
+                    if (!_isPaused) _timer.Start();
+                    RefreshData();
+                });
+            }
+            catch (OperationCanceledException) { }
+            catch (Exception ex) { Logger.Log(ex); InvokeUi(() => StatusMessage = "Hardware monitoring unavailable; see local log."); }
+        }
         private void InitializeCounters()
         {
             // WMI: Base clock speed
@@ -405,7 +413,7 @@ namespace CortexDNA.ViewModels
             // ── All UI-bound property writes are dispatched to the UI thread because
             //    this method is called from a background Task.
 
-            var dispatch = System.Windows.Application.Current?.Dispatcher;
+
 
             // ── 1. OS Info ────────────────────────────────────────────────────────────
             try
@@ -415,13 +423,13 @@ namespace CortexDNA.ViewModels
                     foreach (var obj in searcher.Get())
                     {
                         string osName = $"{obj["Caption"]} (Build {obj["BuildNumber"]})";
-                        dispatch?.Invoke(() => SystemInfo.OsName = osName);
+                        InvokeUi(() => SystemInfo.OsName = osName);
                     }
                 }
             }
             catch
             {
-                dispatch?.Invoke(() => SystemInfo.OsName = "N/A");
+                InvokeUi(() => SystemInfo.OsName = "N/A");
             }
 
             // ── 2. BIOS Info ──────────────────────────────────────────────────────────
@@ -467,7 +475,7 @@ namespace CortexDNA.ViewModels
                 ? $"{boardManuf} {boardProduct}"
                 : $"{boardManuf} (Unknown Model)";
 
-            dispatch?.Invoke(() =>
+            InvokeUi(() =>
             {
                 SystemInfo.MotherboardModel = moboModel;
                 SystemInfo.BiosVersion = version;
@@ -485,7 +493,7 @@ namespace CortexDNA.ViewModels
                         if (obj["Name"] != null)
                         {
                             string cpuName = obj["Name"].ToString()?.Trim() ?? "Unknown CPU";
-                            dispatch?.Invoke(() => CpuName = cpuName);
+                            InvokeUi(() => CpuName = cpuName);
                             break;
                         }
                     }
@@ -493,7 +501,7 @@ namespace CortexDNA.ViewModels
             }
             catch
             {
-                dispatch?.Invoke(() => CpuName = "N/A");
+                InvokeUi(() => CpuName = "N/A");
             }
 
             // ── 5. GPU Info (Robust Multi-GPU) ────────────────────────────────────────
@@ -528,11 +536,11 @@ namespace CortexDNA.ViewModels
                     gpuName = "No GPU Detected";
                 }
 
-                dispatch?.Invoke(() => GpuName = gpuName);
+                InvokeUi(() => GpuName = gpuName);
             }
             catch
             {
-                dispatch?.Invoke(() => GpuName = "N/A");
+                InvokeUi(() => GpuName = "N/A");
             }
 
             // ── 6. RAM Info ───────────────────────────────────────────────────────────
@@ -575,7 +583,7 @@ namespace CortexDNA.ViewModels
             string ramTotal = $"{gb:F1} GB";
             string ramType = speed > 0 ? $"{speed} MHz" : "Unknown";
 
-            dispatch?.Invoke(() =>
+            InvokeUi(() =>
             {
                 SystemInfo.RamInfo = ramInfo;
                 SystemInfo.RamTotal = ramTotal;
@@ -587,7 +595,7 @@ namespace CortexDNA.ViewModels
             {
                 // Read current values on the UI thread so we snapshot consistent data
                 SystemSpecs specs = null!;
-                dispatch?.Invoke(() =>
+                InvokeUi(() =>
                 {
                     specs = new SystemSpecs
                     {
@@ -621,9 +629,14 @@ namespace CortexDNA.ViewModels
 
         private bool _isUpdating = false;
 
-        private async void RefreshData()
+        private void RefreshData()
         {
-            if (_isUpdating || !_hardwareReady) return;
+            if (!_disposed && !_isPaused && !_isUpdating && _hardwareReady)
+                _refreshTask = RefreshDataAsync();
+        }
+        private async Task RefreshDataAsync()
+        {
+            if (_disposed || _isPaused || _isUpdating || !_hardwareReady) return;
             _isUpdating = true;
 
             try
@@ -634,6 +647,9 @@ namespace CortexDNA.ViewModels
                 // 1. Background Work: Fetch all heavy data off the UI thread
                 var data = await Task.Run(() => 
                 {
+                    lock (_hardwareLock)
+                    {
+                    _lifetime.Token.ThrowIfCancellationRequested();
                     bool? gameFound = null;
                     if (shouldCheckGames)
                         gameFound = IsGameProcessRunning();
@@ -666,7 +682,9 @@ namespace CortexDNA.ViewModels
                     var storageStats = _isGameModeActive ? new System.Collections.Generic.List<StorageDto>() : GetStorageStatsSnapshot();
 
                     return new { CpuPerf = cpuPerf, RamAvailable = ramAvailable, NetStats = netStats, StorageStats = storageStats, GameFound = gameFound };
-                });
+                    }
+                }, _lifetime.Token);
+                if (_disposed || _isPaused) return;
 
                 // Apply game mode on UI thread (timer interval / status / priority)
                 if (data.GameFound.HasValue)
@@ -688,6 +706,7 @@ namespace CortexDNA.ViewModels
                 
                 UpdateUptime();
             }
+            catch (OperationCanceledException) { }
             catch (Exception ex)
             {
                 StatusMessage = $"Error updating: {ex.Message}";
@@ -700,9 +719,11 @@ namespace CortexDNA.ViewModels
 
         private bool IsGameProcessRunning()
         {
+            Process[] processes = Array.Empty<Process>();
             try
             {
-                foreach (var p in Process.GetProcesses())
+                processes = Process.GetProcesses();
+                foreach (var p in processes)
                 {
                     try
                     {
@@ -716,6 +737,7 @@ namespace CortexDNA.ViewModels
                 }
             }
             catch { }
+            finally { foreach (var process in processes) process.Dispose(); }
             return false;
         }
 
@@ -772,11 +794,14 @@ namespace CortexDNA.ViewModels
                 }
             }
 
+            long now = Stopwatch.GetTimestamp();
+            double seconds = _networkSampleTimestamp == 0 ? 0 : Stopwatch.GetElapsedTime(_networkSampleTimestamp, now).TotalSeconds;
+            _networkSampleTimestamp = now;
             string down = "0 KB/s";
             string up = "0 KB/s";
 
             // Only calculate speed if we have a previous sample to compare against
-            if (_prevBytesReceived > 0)
+            if (_prevBytesReceived > 0 && seconds > 0)
             {
                 long downBytes = currentReceived - _prevBytesReceived;
                 long upBytes = currentSent - _prevBytesSent;
@@ -785,8 +810,8 @@ namespace CortexDNA.ViewModels
                 if (downBytes < 0) downBytes = 0;
                 if (upBytes < 0) upBytes = 0;
 
-                down = FormatSpeed(downBytes);
-                up = FormatSpeed(upBytes);
+                down = FormatSpeed((long)(downBytes / seconds));
+                up = FormatSpeed((long)(upBytes / seconds));
             }
 
             _prevBytesReceived = currentReceived;
@@ -989,9 +1014,14 @@ namespace CortexDNA.ViewModels
             public string UsedColor { get; set; }
         }
 
-        private async void BoostSystem()
+        private void BoostSystem()
         {
-            if (IsBoosting || _isCleaningDisk) return;
+            if (!_disposed && !IsBoosting && !_isCleaningDisk) _boostTask = BoostSystemAsync();
+        }
+        private async Task BoostSystemAsync()
+        {
+            if (_disposed || IsBoosting || _isCleaningDisk) return;
+            if (System.Windows.MessageBox.Show("Trimming your background apps can temporarily free RAM but may slow their next use. Continue?", "RAM Boost", MessageBoxButton.YesNo, MessageBoxImage.Question) != MessageBoxResult.Yes) return;
             IsBoosting = true;
             IsBoostEnabled = false;
             IsCleanDiskEnabled = false;
@@ -1001,14 +1031,14 @@ namespace CortexDNA.ViewModels
 
             try
             {
-                var result = await RamOptimizer.OptimizeMemoryAsync().ConfigureAwait(true);
+                var result = await RamOptimizer.OptimizeMemoryAsync(_lifetime.Token).ConfigureAwait(true);
 
                 if (!result.Success)
                 {
                     StatusMessage = result.ErrorMessage ?? "Boost failed";
                     BoostButtonText = "Error";
                     BoostButtonColor = "#dc3545";
-                    await Task.Delay(1800).ConfigureAwait(true);
+                    await Task.Delay(1800, _lifetime.Token).ConfigureAwait(true);
                     return;
                 }
 
@@ -1020,15 +1050,15 @@ namespace CortexDNA.ViewModels
                     : "Working sets trimmed (little free RAM change)";
 
                 RefreshData();
-                await Task.Delay(2000).ConfigureAwait(true);
+                await Task.Delay(2000, _lifetime.Token).ConfigureAwait(true);
             }
+            catch (OperationCanceledException) { }
             catch (Exception ex)
             {
                 Logger.Log(ex);
                 StatusMessage = "Boost failed unexpectedly";
                 BoostButtonText = "Error";
                 BoostButtonColor = "#dc3545";
-                await Task.Delay(1800).ConfigureAwait(true);
             }
             finally
             {
@@ -1040,9 +1070,13 @@ namespace CortexDNA.ViewModels
             }
         }
 
-        private async void ExecuteCleanDisk()
+        private void ExecuteCleanDisk()
         {
-            if (_isCleaningDisk || IsBoosting) return;
+            if (!_disposed && !_isCleaningDisk && !IsBoosting) _cleanupTask = ExecuteCleanDiskAsync();
+        }
+        private async Task ExecuteCleanDiskAsync()
+        {
+            if (_disposed || _isCleaningDisk || IsBoosting) return;
             _isCleaningDisk = true;
             IsCleanDiskEnabled = false;
             IsBoostEnabled = false;
@@ -1055,6 +1089,7 @@ namespace CortexDNA.ViewModels
                 var locations = _diskCleanup.CreateDefaultLocations().ToList();
                 var progress = new Progress<CleanupProgress>(p =>
                 {
+                    if (_disposed) return;
                     if (!string.IsNullOrWhiteSpace(p.Message))
                         CleanDiskButtonText = p.Percent > 0 && p.Percent < 100
                             ? $"{p.Percent}%"
@@ -1065,7 +1100,7 @@ namespace CortexDNA.ViewModels
                 CleanupScanResult scanResult;
                 try
                 {
-                    scanResult = await _diskCleanup.ScanAsync(locations, progress).ConfigureAwait(true);
+                    scanResult = await _diskCleanup.ScanAsync(locations, progress, _lifetime.Token).ConfigureAwait(true);
                 }
                 catch (Exception ex)
                 {
@@ -1074,6 +1109,7 @@ namespace CortexDNA.ViewModels
                     return;
                 }
 
+                if (_disposed) return;
                 var dialog = new CleanConfirmationWindow(scanResult.Locations)
                 {
                     Owner = System.Windows.Application.Current?.MainWindow
@@ -1091,7 +1127,9 @@ namespace CortexDNA.ViewModels
 
                 var cleanProgress = new Progress<CleanupProgress>(p =>
                 {
+                    if (_disposed) return;
                     CleanDiskButtonText = p.Percent is > 0 and < 100 ? $"{p.Percent}%" : "Cleaning...";
+                    if (_disposed) return;
                     if (!string.IsNullOrWhiteSpace(p.Message))
                         StatusMessage = p.Message;
                 });
@@ -1099,7 +1137,7 @@ namespace CortexDNA.ViewModels
                 CleanupCleanResult cleanResult;
                 try
                 {
-                    cleanResult = await _diskCleanup.CleanAsync(dialog.SelectedLocations, cleanProgress).ConfigureAwait(true);
+                    cleanResult = await _diskCleanup.CleanAsync(dialog.SelectedLocations, cleanProgress, _lifetime.Token).ConfigureAwait(true);
                 }
                 catch (Exception ex)
                 {
@@ -1108,7 +1146,8 @@ namespace CortexDNA.ViewModels
                     return;
                 }
 
-                if (!cleanResult.Success && cleanResult.FreedBytes == 0)
+                if (_disposed) return;
+                if (!cleanResult.Success)
                 {
                     StatusMessage = cleanResult.ErrorMessage ?? "Cleanup failed";
                     return;
@@ -1129,7 +1168,7 @@ namespace CortexDNA.ViewModels
             catch (Exception ex)
             {
                 Logger.Log(ex);
-                StatusMessage = "Cleanup error - see log.txt";
+                StatusMessage = "Cleanup error - see %LocalAppData%/CortexDNA/Logs/log.txt";
             }
             finally
             {
@@ -1146,22 +1185,34 @@ namespace CortexDNA.ViewModels
         /// Stops all timers and releases hardware monitoring resources.
         /// Call this from the application shutdown handler.
         /// </summary>
-        public void Dispose()
-        {
-            if (_disposed) return;
-            _disposed = true;
-
-            _timer?.Stop();
-            _timer = null!;
-
-            try { _computer?.Close(); } catch { }
-
-            try { _cpuPerfCounter?.Dispose(); } catch { }
-            _cpuPerfCounter = null;
-        }
-
+        public void Dispose() => _ = ShutdownAsync();
         public void Close() => Dispose();
 
+        public Task ShutdownAsync()
+        {
+            if (_shutdownTask != null) return _shutdownTask;
+            _disposed = true;
+            _lifetime.Cancel();
+            _timer.Stop();
+            return _shutdownTask = ReleaseResourcesAsync();
+        }
+
+        private async Task ReleaseResourcesAsync()
+        {
+            try { await Task.WhenAll(_initialization, _refreshTask, _boostTask, _cleanupTask); }
+            catch (OperationCanceledException) { }
+            catch (Exception ex) { Logger.Log(ex); }
+            await Task.Run(() => {
+                lock (_hardwareLock)
+                {
+                    try { _computer.Close(); } catch (Exception ex) { Logger.Log(ex); }
+                    _cpuPerfCounter?.Dispose();
+                    _cpuPerfCounter = null;
+                    _hardwareReady = false;
+                }
+            });
+            _lifetime.Dispose();
+        }
         private class SystemSpecs
         {
             public string? OsName { get; set; }

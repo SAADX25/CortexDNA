@@ -392,25 +392,21 @@ namespace CortexDNA.Core.Startup
         private static List<string> ResolveWritePaths(StartupItem item)
         {
             var paths = new List<string>();
-            AddPath(paths, item.StateRegistryPath);
-
-            foreach (string path in FindExistingTaskPaths(item.PackageFamilyName, item.ApprovalValueName))
-                AddPath(paths, path);
-
+            if (IsExactTaskPath(item.StateRegistryPath, item.PackageFamilyName, item.ApprovalValueName))
+            {
+                using var existing = Registry.CurrentUser.OpenSubKey(item.StateRegistryPath);
+                if (existing != null) paths.Add(item.StateRegistryPath);
+            }
             if (paths.Count == 0)
-                AddPath(paths, FindOrCreateTaskPath(item.PackageFamilyName, item.ApprovalValueName));
-
+                paths.AddRange(FindExistingTaskPaths(item.PackageFamilyName, item.ApprovalValueName).Take(1));
             return paths;
         }
 
-        private static void AddPath(List<string> paths, string? path)
-        {
-            if (string.IsNullOrWhiteSpace(path))
-                return;
-            if (!paths.Exists(p => string.Equals(p, path, StringComparison.OrdinalIgnoreCase)))
-                paths.Add(path);
-        }
-
+        internal static bool IsExactTaskPath(string path, string pfn, string taskId) =>
+            !string.IsNullOrWhiteSpace(pfn) && !pfn.Contains('\\') &&
+            !string.IsNullOrWhiteSpace(taskId) && !taskId.Contains('\\') &&
+            path.StartsWith($@"{SystemAppData}\{pfn}\", StringComparison.OrdinalIgnoreCase) &&
+            path.Split('\\')[^1].Equals(taskId, StringComparison.OrdinalIgnoreCase);
         private static List<string> FindExistingTaskPaths(string pfn, string taskId)
         {
             var paths = new List<string>();
@@ -432,19 +428,9 @@ namespace CortexDNA.Core.Startup
         private static void CollectTaskPaths(RegistryKey key, string relativePath, string taskId, List<string> paths)
         {
             string name = relativePath.Split('\\')[^1];
-            bool underTasks = relativePath.Contains(@"\StartupTasks\", StringComparison.OrdinalIgnoreCase);
-            bool isTasksFolder = name.Equals("StartupTasks", StringComparison.OrdinalIgnoreCase);
-            bool nameMatches = name.Equals(taskId, StringComparison.OrdinalIgnoreCase)
-                || name.Contains("Startup", StringComparison.OrdinalIgnoreCase);
-
-            if (underTasks && !isTasksFolder)
+            if (name.Equals(taskId, StringComparison.OrdinalIgnoreCase) &&
+                (key.GetValue("State") != null || key.GetValue("UserEnabledState") != null))
                 paths.Add(relativePath);
-            else if (nameMatches && (key.GetValue("State") != null || key.GetValue("UserEnabledState") != null))
-                paths.Add(relativePath);
-
-            if (isTasksFolder)
-                paths.Add($@"{relativePath}\{taskId}");
-
             foreach (string child in key.GetSubKeyNames())
             {
                 using var sub = key.OpenSubKey(child);
@@ -453,51 +439,22 @@ namespace CortexDNA.Core.Startup
             }
         }
 
-        private static string FindOrCreateTaskPath(string pfn, string taskId)
-        {
-            try
-            {
-                using var pkg = Registry.CurrentUser.OpenSubKey($@"{SystemAppData}\{pfn}", writable: true)
-                    ?? Registry.CurrentUser.CreateSubKey($@"{SystemAppData}\{pfn}");
-                if (pkg == null)
-                    return $@"{SystemAppData}\{pfn}\StartupTasks\{taskId}";
-
-                string? nested = FindStartupTasksFolder(pkg, $@"{SystemAppData}\{pfn}");
-                return string.IsNullOrWhiteSpace(nested)
-                    ? $@"{SystemAppData}\{pfn}\StartupTasks\{taskId}"
-                    : $@"{nested}\{taskId}";
-            }
-            catch
-            {
-                return $@"{SystemAppData}\{pfn}\StartupTasks\{taskId}";
-            }
-        }
-
-        private static string? FindStartupTasksFolder(RegistryKey key, string relativePath)
-        {
-            if (relativePath.Split('\\')[^1].Equals("StartupTasks", StringComparison.OrdinalIgnoreCase))
-                return relativePath;
-
-            foreach (string child in key.GetSubKeyNames())
-            {
-                using var sub = key.OpenSubKey(child);
-                if (sub == null) continue;
-                string? found = FindStartupTasksFolder(sub, $@"{relativePath}\{child}");
-                if (found != null)
-                    return found;
-            }
-
-            return null;
-        }
-
         private static void WriteTaskState(string path, int value)
         {
-            using var key = Registry.CurrentUser.CreateSubKey(path, true)
-                ?? throw new InvalidOperationException("Could not update this Store app startup task.");
-            key.SetValue("State", value, RegistryValueKind.DWord);
-            key.SetValue("UserEnabledState", value, RegistryValueKind.DWord);
+            using var key = Registry.CurrentUser.OpenSubKey(path, writable: true)
+                ?? throw new InvalidOperationException("The startup task no longer exists.");
+            string[] names = new[] { "State", "UserEnabledState" }.Where(name => key.GetValue(name) != null).ToArray();
+            var original = names.ToDictionary(name => name, name => key.GetValue(name)!);
+            if (names.Length == 0 || names.Any(name => key.GetValueKind(name) != RegistryValueKind.DWord ||
+                Convert.ToInt32(original[name]) is not (0 or 1 or 2)))
+                throw new InvalidOperationException("This startup task is unknown or managed by policy. Use Windows startup settings.");
+            try { foreach (string name in names) key.SetValue(name, value, RegistryValueKind.DWord); }
+            catch
+            {
+                foreach (var pair in original) key.SetValue(pair.Key, pair.Value, RegistryValueKind.DWord);
+                throw;
+            }
         }
-
         private static bool ReadPathEnabled(string path)
         {
             using var key = Registry.CurrentUser.OpenSubKey(path);
