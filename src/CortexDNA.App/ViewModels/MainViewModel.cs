@@ -7,10 +7,12 @@ namespace CortexDNA.ViewModels
     {
         private AppSection _currentSection = AppSection.Overview;
 
-        public MainViewModel()
+        public MainViewModel() : this(AppComposition.CreateHardwareViewModel(), AppComposition.CreateStartupViewModel()) { }
+
+        public MainViewModel(HardwareViewModel hardware, StartupViewModel startup)
         {
-            HardwareVM = new HardwareViewModel();
-            StartupVM = new StartupViewModel();
+            HardwareVM = hardware ?? throw new ArgumentNullException(nameof(hardware));
+            StartupVM = startup ?? throw new ArgumentNullException(nameof(startup));
             NavigateCommand = new RelayCommand<string>(Navigate);
         }
 

@@ -5,7 +5,7 @@ $projectRoot = Split-Path -Parent $PSScriptRoot
 Set-Location -LiteralPath $projectRoot
 # A fresh directory prevents stale files from entering the installer; no recursive deletion.
 $publish = Join-Path $projectRoot ('artifacts\publish\' + [guid]::NewGuid().ToString('N'))
-$arguments = @('publish', 'CortexDNA.csproj', '-c', 'Release', '-r', 'win-x64', '--self-contained', 'false', '-p:PublishReadyToRun=true', '-p:NuGetAudit=false', '-warnaserror', '-o', $publish)
+$arguments = @('publish', 'src/CortexDNA.App/CortexDNA.App.csproj', '-c', 'Release', '-r', 'win-x64', '--self-contained', 'false', '-p:PublishReadyToRun=true', '-p:NuGetAudit=false', '-warnaserror', '-o', $publish)
 if ($NoRestore) { $arguments += '--no-restore' }
 & dotnet @arguments
 if ($LASTEXITCODE -ne 0) { throw 'Publish failed.' }

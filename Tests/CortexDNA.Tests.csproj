@@ -9,6 +9,6 @@
   </PropertyGroup>
   <ItemGroup>
     <Compile Remove="Standard\**\*.cs" />
-    <ProjectReference Include="..\CortexDNA.csproj" />
+    <ProjectReference Include="..\src\CortexDNA.App\CortexDNA.App.csproj" />
   </ItemGroup>
 </Project>

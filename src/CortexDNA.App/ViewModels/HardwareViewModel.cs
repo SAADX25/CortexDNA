@@ -17,6 +17,7 @@ using LibreHardwareMonitor.Hardware;
 using System.Windows.Input;
 using System.Text.Json;
 using CortexDNA.Core;
+using CortexDNA.Hardware;
 using Microsoft.Win32;
 using System.Runtime.InteropServices;
 
@@ -24,7 +25,7 @@ namespace CortexDNA.ViewModels
 {
     public class HardwareViewModel : ViewModelBase, IDisposable
     {
-        private readonly Computer _computer;
+        private readonly IHardwareSession _computer;
         private DispatcherTimer _timer;
         private volatile bool _disposed;
         private readonly CancellationTokenSource _lifetime = new();
@@ -145,7 +146,8 @@ namespace CortexDNA.ViewModels
         private volatile bool _hardwareReady;
         private int _gameCheckCounter = 0;
         private readonly HashSet<string> _gameProcessSet;
-        private readonly DiskCleanupService _diskCleanup = new();
+        private readonly ICleanupService _diskCleanup;
+        private readonly IMemoryOptimizer _memoryOptimizer;
         
         private readonly string _specsCachePath;
 
@@ -162,8 +164,14 @@ namespace CortexDNA.ViewModels
             "overwatch"
         };
 
-        public HardwareViewModel()
+        public HardwareViewModel() : this(AppComposition.CreateCleanupService(),
+            AppComposition.CreateMemoryOptimizer(), AppComposition.CreateHardwareSession()) { }
+
+        public HardwareViewModel(ICleanupService cleanup, IMemoryOptimizer memoryOptimizer, IHardwareSession hardware)
         {
+            _diskCleanup = cleanup ?? throw new ArgumentNullException(nameof(cleanup));
+            _memoryOptimizer = memoryOptimizer ?? throw new ArgumentNullException(nameof(memoryOptimizer));
+            _computer = hardware ?? throw new ArgumentNullException(nameof(hardware));
             _specsCachePath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "CortexDNA", "specs.json");
             _gameProcessSet = new HashSet<string>(_gameProcesses, StringComparer.OrdinalIgnoreCase);
 
@@ -181,16 +189,7 @@ namespace CortexDNA.ViewModels
 
             // Only enable hardware types the UI actually displays (CPU/GPU).
             // RAM uses GlobalMemoryStatusEx; storage uses DriveInfo; motherboard uses WMI.
-            _computer = new Computer
-            {
-                IsCpuEnabled = true,
-                IsGpuEnabled = true,
-                IsMemoryEnabled = false,
-                IsMotherboardEnabled = false,
-                IsControllerEnabled = false,
-                IsNetworkEnabled = false,
-                IsStorageEnabled = false
-            };
+            // The injected session preserves the same enabled hardware types.
 
             // 2. Background Refresh (Slow, but ensures data is fresh) - Step 2 & 3
 
@@ -658,7 +657,7 @@ namespace CortexDNA.ViewModels
                     if (!_isGameModeActive)
                     {
                         // Update only enabled hardware (CPU + GPU) — no double Update
-                        _computer.Accept(new CortexDNA.Core.UpdateVisitor());
+                        _computer.Refresh();
                     }
 
                     // Performance Counters (Lightweight)
@@ -1031,7 +1030,7 @@ namespace CortexDNA.ViewModels
 
             try
             {
-                var result = await RamOptimizer.OptimizeMemoryAsync(_lifetime.Token).ConfigureAwait(true);
+                var result = await _memoryOptimizer.OptimizeMemoryAsync(_lifetime.Token).ConfigureAwait(true);
 
                 if (!result.Success)
                 {

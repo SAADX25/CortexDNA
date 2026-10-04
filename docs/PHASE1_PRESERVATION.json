@@ -1,0 +1,237 @@
+[
+  {
+    "Original": "AboutWindow.xaml",
+    "Destination": "src/CortexDNA.App/AboutWindow.xaml",
+    "Hash": "6397856646866B2E5E3104F8E4071E50D551CACC8CE59397C01C922C611DC35B"
+  },
+  {
+    "Original": "AboutWindow.xaml.cs",
+    "Destination": "src/CortexDNA.App/AboutWindow.xaml.cs",
+    "Hash": "59AC97C451BCCD0C534537AB0DD78C3B967E559F0E5571A6166B9AF2CACDCFFB"
+  },
+  {
+    "Original": "app.ico",
+    "Destination": "src/CortexDNA.App/app.ico",
+    "Hash": "80C5D5F57F00C263AE4E3F0DB37FF092F35E09AAE6485CA7270AAB7A4DAD823A"
+  },
+  {
+    "Original": "app.manifest",
+    "Destination": "src/CortexDNA.App/app.manifest",
+    "Hash": "0056ACE8B39EF97A669BC96DD0294A1C1320E7BA1B60BD78C65937A1A63C5944"
+  },
+  {
+    "Original": "App.xaml",
+    "Destination": "src/CortexDNA.App/App.xaml",
+    "Hash": "1A0FAB685F6FF961F0381E3824D5440E16632D0CDA0E451937078ACA40744BB0"
+  },
+  {
+    "Original": "App.xaml.cs",
+    "Destination": "src/CortexDNA.App/App.xaml.cs",
+    "Hash": "8C6E047755802F39371DD762ED394E97A5D3067E07578251DC67D54487BF2808"
+  },
+  {
+    "Original": "AssemblyInfo.cs",
+    "Destination": "src/CortexDNA.App/AssemblyInfo.cs",
+    "Hash": "D93BF2CC2A45D6DA5D6BC276BB7E2CF14C907749731AE8D4BB12F6C43A1830EB"
+  },
+  {
+    "Original": "CleanConfirmationWindow.xaml",
+    "Destination": "src/CortexDNA.App/CleanConfirmationWindow.xaml",
+    "Hash": "6D3DA52CDB9AA9295E4AAB4454886956A299214ECC12644D0A25C3EECF78D4E7"
+  },
+  {
+    "Original": "CleanConfirmationWindow.xaml.cs",
+    "Destination": "src/CortexDNA.App/CleanConfirmationWindow.xaml.cs",
+    "Hash": "E1A9A78AEC5630AA8C489D80FC6418D85907AD023DA7BCFF17D5835333692BF6"
+  },
+  {
+    "Original": "CleanupResultsWindow.xaml",
+    "Destination": "src/CortexDNA.App/CleanupResultsWindow.xaml",
+    "Hash": "CEAC1516DE817A72675F51B726034817207B0B903DD2A45152D84625D9AC6371"
+  },
+  {
+    "Original": "CleanupResultsWindow.xaml.cs",
+    "Destination": "src/CortexDNA.App/CleanupResultsWindow.xaml.cs",
+    "Hash": "BE32973EE3F84ADCFADA029ADD4A15A1F9602424814BB687D138E8EA79A24FD8"
+  },
+  {
+    "Original": "Controls/HardwareDashboardControl.xaml",
+    "Destination": "src/CortexDNA.App/Controls/HardwareDashboardControl.xaml",
+    "Hash": "A7F1A2B2AF5E8437CA25307B83DEFB71DBFD5A8F2F76B89A222CFD314ABAE978"
+  },
+  {
+    "Original": "Controls/HardwareDashboardControl.xaml.cs",
+    "Destination": "src/CortexDNA.App/Controls/HardwareDashboardControl.xaml.cs",
+    "Hash": "C56108DD9608AB596D2E1B9686D8792CFDB6B178413F19F23A7113C79197CBA5"
+  },
+  {
+    "Original": "Controls/StartupImpactControl.xaml",
+    "Destination": "src/CortexDNA.App/Controls/StartupImpactControl.xaml",
+    "Hash": "B4F91BD66842DEAE5A1499F4C0A61D272A8626309C3A2049F8ED4E8176563671"
+  },
+  {
+    "Original": "Controls/StartupImpactControl.xaml.cs",
+    "Destination": "src/CortexDNA.App/Controls/StartupImpactControl.xaml.cs",
+    "Hash": "731EB1135013ADD5C438F76B2E1171758E560AEE9DE8C9FA766DF383CD766F56"
+  },
+  {
+    "Original": "Converters/BoolToVisibilityConverter.cs",
+    "Destination": "src/CortexDNA.App/Converters/BoolToVisibilityConverter.cs",
+    "Hash": "3574F569560273C791A47C1E9C2770A069DD46C16C417D166F21C5A9C7B72A4C"
+  },
+  {
+    "Original": "Converters/SemanticColorConverters.cs",
+    "Destination": "src/CortexDNA.App/Converters/SemanticColorConverters.cs",
+    "Hash": "9D885D6F857990A44848B97DAE5D9170EB15413D91A67524544A98A2D4FD5165"
+  },
+  {
+    "Original": "Core/CleanupPathGuard.cs",
+    "Destination": "src/CortexDNA.System/CleanupPathGuard.cs",
+    "Hash": "F3C43E9487FC85E23E0577C57366249781D4F2EA9428F7973D85128D73665C51"
+  },
+  {
+    "Original": "Core/Logger.cs",
+    "Destination": "src/CortexDNA.Infrastructure/Logger.cs",
+    "Hash": "0F71615C95D68AA75427331C33C2E1616BB9E808119BC22CB884DE79FE757B23"
+  },
+  {
+    "Original": "Core/NativeMethods.cs",
+    "Destination": "src/CortexDNA.System/NativeMethods.cs",
+    "Hash": "B9CAF747557A27AEDF3BD011D9542FB661690DD42117AAF9C2C68A6C10600053"
+  },
+  {
+    "Original": "Core/ObservableObject.cs",
+    "Destination": "src/CortexDNA.Core/Core/ObservableObject.cs",
+    "Hash": "420E22351E241668AFE0859F2E2E66D353FB30EE1FDDFDCA0FE7AB28E166D23E"
+  },
+  {
+    "Original": "Core/RamOptimizer.cs",
+    "Destination": "src/CortexDNA.Optimization/RamOptimizer.cs",
+    "Hash": "1F5A2D35E67D17D9012B89B7513A5AC38C3981B09F57AC3199A4C2BE51464B0E"
+  },
+  {
+    "Original": "Core/RelayCommand.cs",
+    "Destination": "src/CortexDNA.App/UI/RelayCommand.cs",
+    "Hash": "73009734CA19A0083628D09BA0CAF33301905A3829D829DB7E16D97F9B1D6548"
+  },
+  {
+    "Original": "Core/Startup/LegacyStartupDelayMigration.cs",
+    "Destination": "src/CortexDNA.System/Startup/LegacyStartupDelayMigration.cs",
+    "Hash": "DAF93E972C0FAC0047AA9465386CAF7DB4D9773572C2791F7FEB5C75EB3D8E76"
+  },
+  {
+    "Original": "Core/Startup/StartupApprovalService.cs",
+    "Destination": "src/CortexDNA.System/Startup/StartupApprovalService.cs",
+    "Hash": "86884EA73AAC193C49418614078E73E3F1AFCE0A64EDF61A85D3A3A3918922F7"
+  },
+  {
+    "Original": "Core/Startup/StartupCatalogService.cs",
+    "Destination": "src/CortexDNA.System/Startup/StartupCatalogService.cs",
+    "Hash": "96B8EEB9B100B12D0300929C597E66CD60486939C9C0AD8E66A8A3E6CFC46362"
+  },
+  {
+    "Original": "Core/Startup/StartupCom.cs",
+    "Destination": "src/CortexDNA.System/Startup/StartupCom.cs",
+    "Hash": "738CA43A89C4242AC9737C7F32BDBBDD981405BACBC0D87CD82E76127CC9DECF"
+  },
+  {
+    "Original": "Core/Startup/StartupDelayService.cs",
+    "Destination": "src/CortexDNA.System/Startup/StartupDelayService.cs",
+    "Hash": "DDC73E4531ADAA253977D80FD81BED5117FFFCBA928164F2B44E7545C49A8F1C"
+  },
+  {
+    "Original": "Core/Startup/StartupIconLoader.cs",
+    "Destination": "src/CortexDNA.App/UI/StartupIconLoader.cs",
+    "Hash": "F7443CC458D10A6417DC48243E6EC11C304D3920A9D2007B50A50D0B9A42B164"
+  },
+  {
+    "Original": "Core/Startup/StartupImpactService.cs",
+    "Destination": "src/CortexDNA.System/Startup/StartupImpactService.cs",
+    "Hash": "67D2BA478E0F9958575CA5FE18012D007D24A47C789E56A98789AF9B90ED1FD8"
+  },
+  {
+    "Original": "Core/Startup/StartupPackagedCatalog.cs",
+    "Destination": "src/CortexDNA.System/Startup/StartupPackagedCatalog.cs",
+    "Hash": "0076E17568AE33A17C1BE7F5A9BC27387FC1FDE4D4DE4CE6E18335FE3E2A8957"
+  },
+  {
+    "Original": "Core/Startup/StartupPaths.cs",
+    "Destination": "src/CortexDNA.System/Startup/StartupPaths.cs",
+    "Hash": "7E7502EC06144BD9712DA4855AB3370FD885DE7D0F261544D8D4432DB4C27781"
+  },
+  {
+    "Original": "Core/Startup/StartupProcessProbe.cs",
+    "Destination": "src/CortexDNA.System/Startup/StartupProcessProbe.cs",
+    "Hash": "5D6E9E802E6438742E9418C5251025DA39B4B342772E977965196BE51E61C8B7"
+  },
+  {
+    "Original": "Core/SystemToolLauncher.cs",
+    "Destination": "src/CortexDNA.System/SystemToolLauncher.cs",
+    "Hash": "CF9043C5F9F5C1CF01CDE66B73030F2CBDB9E49253C95398104DF9C6B9A0008F"
+  },
+  {
+    "Original": "Core/UpdateServiceLease.cs",
+    "Destination": "src/CortexDNA.System/UpdateServiceLease.cs",
+    "Hash": "9A887EDD4674357C94CB4A25D650554BD9C4BCEFD84E95F1B556D1A4417CD57C"
+  },
+  {
+    "Original": "Core/UpdateVisitor.cs",
+    "Destination": "src/CortexDNA.Hardware/UpdateVisitor.cs",
+    "Hash": "36354873107A0991F9D2767BA44F5A483B8F3CD2F643DBBBB66B9CC3E81F437C"
+  },
+  {
+    "Original": "MainWindow.xaml",
+    "Destination": "src/CortexDNA.App/MainWindow.xaml",
+    "Hash": "913A4599C264BE6AFBA996FD84AC649637FDE1024579AB5057511A659383A0F2"
+  },
+  {
+    "Original": "MainWindow.xaml.cs",
+    "Destination": "src/CortexDNA.App/MainWindow.xaml.cs",
+    "Hash": "D87AFD802C33406FCD09D3B41745D9750778D4FB937A7080D3959033876BB7E3"
+  },
+  {
+    "Original": "Models/CleanupModels.cs",
+    "Destination": "src/CortexDNA.Core/Models/CleanupModels.cs",
+    "Hash": "A57D78BE42E968CC2C505B7FD7EB1CA1CB3E54C425971303716C40E2A3CB9C34"
+  },
+  {
+    "Original": "Models/HardwareModels.cs",
+    "Destination": "src/CortexDNA.Core/Models/HardwareModels.cs",
+    "Hash": "9AD3DE0251250B53E1149C7BC29179D2908C6563AFCF52AF66BBF9A131899454"
+  },
+  {
+    "Original": "Models/StartupModels.cs",
+    "Destination": "src/CortexDNA.Core/Models/StartupModels.cs",
+    "Hash": "993DDF016D002854E9A09518DA7EE86ACCF0FAF0B536B3D0AADFCF71864F2F8D"
+  },
+  {
+    "Original": "Tests/Program.cs",
+    "Destination": "Tests/Program.cs",
+    "Hash": "79E3EBCDDB9CF147593094E6E6DDDB8292487E8E03471B43B1AB05EADE24570E"
+  },
+  {
+    "Original": "Tests/Standard/LegacyMigrationTests.cs",
+    "Destination": "Tests/Standard/LegacyMigrationTests.cs",
+    "Hash": "F027E555134F3108D272A81EF347DC613D982CC14657F842EB992FA52EECCF78"
+  },
+  {
+    "Original": "Tests/Standard/RegressionHarnessTests.cs",
+    "Destination": "Tests/Standard/RegressionHarnessTests.cs",
+    "Hash": "C1090DA119BA1C1825B60DEF00DCF7383C4C735F35A7E957DE66CF7A7AE33159"
+  },
+  {
+    "Original": "Themes/DarkTheme.xaml",
+    "Destination": "src/CortexDNA.App/Themes/DarkTheme.xaml",
+    "Hash": "EC497572AAEEF41D736EA23102A37BA88943CAA62F34BF8C7A6F3AE504A42571"
+  },
+  {
+    "Original": "Themes/LightTheme.xaml",
+    "Destination": "src/CortexDNA.App/Themes/LightTheme.xaml",
+    "Hash": "F91C33F960BFBEFF4E057EDD925BD806E32A0ED0F373D512E391481D4C865240"
+  },
+  {
+    "Original": "ViewModels/ViewModelBase.cs",
+    "Destination": "src/CortexDNA.App/ViewModels/ViewModelBase.cs",
+    "Hash": "8B894A1E01BEBEB05C45A1BCD7BAE8F193D1AF034B6D9C92BAAC1D14328A6AAD"
+  }
+]

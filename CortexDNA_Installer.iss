@@ -3,7 +3,7 @@
 #define MyAppPublisher "Cortex"
 #define MyAppExeName "CortexDNA.exe"
 #ifndef PublishDir
-  #define PublishDir "bin\Release\net10.0-windows\win-x64\publish"
+  #define PublishDir "src\CortexDNA.App\bin\Release\net10.0-windows\win-x64\publish"
 #endif
 
 [Setup]

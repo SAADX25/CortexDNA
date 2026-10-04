@@ -6,13 +6,24 @@ namespace CortexDNA.Core.Startup
     /// Facade for the Startup Impact feature. Keeps catalog, approval,
     /// delay, and Windows log impact behind one entry point.
     /// </summary>
-    public sealed class StartupFeatureService
+    public sealed class StartupFeatureService : IStartupService
     {
-        private readonly StartupCatalogService _catalog = new();
-        private readonly StartupApprovalService _approval = new();
-        private readonly StartupDelayService _delay = new();
-        private readonly StartupImpactService _impact = new();
+        private readonly StartupCatalogService _catalog;
+        private readonly StartupApprovalService _approval;
+        private readonly StartupDelayService _delay;
+        private readonly StartupImpactService _impact;
 
+        public StartupFeatureService() : this(new StartupCatalogService(), new StartupApprovalService(),
+            new StartupDelayService(), new StartupImpactService()) { }
+
+        public StartupFeatureService(StartupCatalogService catalog, StartupApprovalService approval,
+            StartupDelayService delay, StartupImpactService impact)
+        {
+            _catalog = catalog ?? throw new ArgumentNullException(nameof(catalog));
+            _approval = approval ?? throw new ArgumentNullException(nameof(approval));
+            _delay = delay ?? throw new ArgumentNullException(nameof(delay));
+            _impact = impact ?? throw new ArgumentNullException(nameof(impact));
+        }
         public Task<StartupSnapshot> LoadAsync(bool migrateLegacy = true)
         {
             return Task.Run(() => Load(migrateLegacy));

@@ -1,5 +1,12 @@
 <Solution>
-  <Project Path="CortexDNA.csproj" />
+  <Project Path="src/CortexDNA.App/CortexDNA.App.csproj" />
+  <Project Path="src/CortexDNA.Core/CortexDNA.Core.csproj" />
+  <Project Path="src/CortexDNA.System/CortexDNA.System.csproj" />
+  <Project Path="src/CortexDNA.Hardware/CortexDNA.Hardware.csproj" />
+  <Project Path="src/CortexDNA.Cleanup/CortexDNA.Cleanup.csproj" />
+  <Project Path="src/CortexDNA.Startup/CortexDNA.Startup.csproj" />
+  <Project Path="src/CortexDNA.Optimization/CortexDNA.Optimization.csproj" />
+  <Project Path="src/CortexDNA.Infrastructure/CortexDNA.Infrastructure.csproj" />
   <Project Path="Tests/CortexDNA.Tests.csproj" />
   <Project Path="Tests/Standard/CortexDNA.AutomatedTests.csproj" />
 </Solution>

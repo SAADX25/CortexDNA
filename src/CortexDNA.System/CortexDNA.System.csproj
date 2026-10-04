@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Version>2.1.0</Version>
+    <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
+  </PropertyGroup>
+  <ItemGroup>
+    <!-- Existing desktop runtime supplies Windows EventLog APIs used by startup impact. -->
+    <FrameworkReference Include="Microsoft.WindowsDesktop.App.WindowsForms" />
+    <ProjectReference Include="../CortexDNA.Core/CortexDNA.Core.csproj" />
+    <ProjectReference Include="../CortexDNA.Infrastructure/CortexDNA.Infrastructure.csproj" />
+  </ItemGroup>
+</Project>

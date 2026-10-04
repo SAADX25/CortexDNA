@@ -28,7 +28,7 @@ original user.
 
 ```powershell
 dotnet restore CortexDNA.slnx --configfile Tests/NuGet.Offline.config -p:NuGetAudit=false
-dotnet build CortexDNA.csproj --no-restore -c Debug -warnaserror
+dotnet build src/CortexDNA.App/CortexDNA.App.csproj --no-restore -c Debug -warnaserror
 dotnet test -c Release --no-restore -warnaserror
 powershell -NoProfile -File scripts/Verify-Local.ps1
 ```
@@ -51,7 +51,7 @@ startup entries, stop real Windows services, or trim real processes.
 
 ```powershell
 # Restore using the local cache for the Windows runtime identifier first:
-dotnet restore CortexDNA.csproj -r win-x64 --configfile Tests/NuGet.Offline.config -p:NuGetAudit=false
+dotnet restore src/CortexDNA.App/CortexDNA.App.csproj -r win-x64 --configfile Tests/NuGet.Offline.config -p:NuGetAudit=false
 ./scripts/Build-Release.ps1 -NoRestore
 # Publish without compiling an installer:
 ./scripts/Build-Release.ps1 -NoRestore -SkipInstaller
@@ -125,3 +125,22 @@ vulnerability-feed audit was not performed in this local-only pass.
 See `LOCAL_ENGINEERING_REPORT.md` for findings, changed/deleted files and verification results.
 No LICENSE file exists in the local repository; no license was invented as part of this pass.
 See [the Update-29 VM checklist](docs/UPDATE29_VM_CHECKLIST.md) for installer, real services and startup integration release gates. CI failure propagation can be checked locally with scripts/Verify-CIFailureModes.ps1.
+
+## Phase 1 modular architecture
+
+The existing executable, UI and Update-30 safety behavior are preserved. Product source is
+in src/CortexDNA.App, Core, System, Infrastructure, Cleanup, Startup, Optimization and Hardware.
+Core targets net10.0 without WPF, Windows APIs or packages. Windows implementations and local
+logging now have their own assemblies. The app's explicit composition root injects cleanup,
+startup, memory optimization and hardware session dependencies. Parameterless constructors
+remain compatible with existing WPF resources and regression tests. The hardware ViewModel
+retains its existing polling and WMI logic pending Phase 3; this phase does not add new pages.
+
+Agent Management, AI Agents, Agent Security Sandbox and sandbox deployment are permanently
+excluded from this rebuild, including hidden UI, placeholders, reserved architecture and unused
+dependencies. Target product areas are Home, Health, Cleanup, Storage, Startup, Hardware,
+Gaming, Security, Tools, Settings and Diagnostics; later phases require review.
+
+See docs/PHASE1_MIGRATION_PLAN.md for every original file's destination and project references.
+Verify-Local.ps1 also checks the Update-30 preservation manifest and excluded feature scope.
+Existing test sources stay in Tests; ArchitectureTests.cs adds graph and injection checks.

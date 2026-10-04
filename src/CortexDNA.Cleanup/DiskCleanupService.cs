@@ -12,7 +12,7 @@ namespace CortexDNA.Core
     /// <summary>
     /// Safe junk-file scanner/cleaner with selectable categories and progress.
     /// </summary>
-    public sealed class DiskCleanupService
+    public sealed class DiskCleanupService : ICleanupService
     {
         private static readonly HashSet<string> SkippedFilePrefixes = new(StringComparer.OrdinalIgnoreCase)
         {

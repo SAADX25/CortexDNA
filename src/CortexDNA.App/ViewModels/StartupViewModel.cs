@@ -9,13 +9,13 @@ namespace CortexDNA.ViewModels
 {
     public sealed class StartupItemViewModel : ViewModelBase
     {
-        private readonly StartupFeatureService _service;
+        private readonly IStartupService _service;
         private readonly Action<string> _setStatus;
         private bool _isEnabled;
         private bool _isDelayed;
         private bool _isBusy;
 
-        public StartupItemViewModel(StartupItem model, StartupFeatureService service, Action<string> setStatus)
+        public StartupItemViewModel(StartupItem model, IStartupService service, Action<string> setStatus)
         {
             Model = model;
             _service = service;
@@ -170,7 +170,7 @@ namespace CortexDNA.ViewModels
 
     public sealed class StartupViewModel : ViewModelBase, IDisposable
     {
-        private readonly StartupFeatureService _service = new();
+        private readonly IStartupService _service;
         private bool _isLoading;
         private bool _loaded;
         private bool _disposed;
@@ -183,8 +183,11 @@ namespace CortexDNA.ViewModels
 
         private DateTime _lastLoadUtc;
 
-        public StartupViewModel()
+        public StartupViewModel() : this(AppComposition.CreateStartupService()) { }
+
+        public StartupViewModel(IStartupService service)
         {
+            _service = service ?? throw new ArgumentNullException(nameof(service));
             RefreshCommand = new RelayCommand(async () => await LoadAsync(force: true), () => !_isLoading);
         }
 
