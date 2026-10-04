@@ -2,6 +2,7 @@ using System.Windows;
 using System.Runtime.CompilerServices;
 
 [assembly: InternalsVisibleTo("CortexDNA.Tests")]
+[assembly: InternalsVisibleTo("CortexDNA.AutomatedTests")]
 
 [assembly:ThemeInfo(
     ResourceDictionaryLocation.None,            //where theme specific resource dictionaries are located

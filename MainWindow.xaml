@@ -498,19 +498,19 @@
                                         <TextBlock Text="System Info" VerticalAlignment="Center"/>
                                     </StackPanel>
                                 </Button>
-                                <Button Style="{StaticResource SidebarButtonStyle}" Click="Button_TaskManager_Click" ToolTip="Task Manager" Tag="task manager taskmgr processes">
+                                <Button Style="{StaticResource SidebarButtonStyle}" Click="Button_TaskManager_Click" ToolTip="Task Manager (Administrator)" Tag="task manager taskmgr processes">
                                     <StackPanel Orientation="Horizontal">
                                         <TextBlock Text="&#xE90C;" Style="{StaticResource SidebarIcon}" Foreground="#0D9488"/>
                                         <TextBlock Text="Task Manager" VerticalAlignment="Center"/>
                                     </StackPanel>
                                 </Button>
-                                <Button Style="{StaticResource SidebarButtonStyle}" Click="Button_ResMon_Click" ToolTip="Resource Monitor" Tag="resource monitor resmon cpu disk">
+                                <Button Style="{StaticResource SidebarButtonStyle}" Click="Button_ResMon_Click" ToolTip="Resource Monitor (Administrator)" Tag="resource monitor resmon cpu disk">
                                     <StackPanel Orientation="Horizontal">
                                         <TextBlock Text="&#xE9D2;" Style="{StaticResource SidebarIcon}" Foreground="#0D9488"/>
                                         <TextBlock Text="Resource Monitor" VerticalAlignment="Center"/>
                                     </StackPanel>
                                 </Button>
-                                <Button Style="{StaticResource SidebarButtonStyle}" Click="Button_DeviceManager_Click" ToolTip="Device Manager" Tag="device manager hardware drivers">
+                                <Button Style="{StaticResource SidebarButtonStyle}" Click="Button_DeviceManager_Click" ToolTip="Device Manager (Administrator)" Tag="device manager hardware drivers">
                                     <StackPanel Orientation="Horizontal">
                                         <TextBlock Text="&#xE7F4;" Style="{StaticResource SidebarIcon}" Foreground="#0D9488"/>
                                         <TextBlock Text="Device Manager" VerticalAlignment="Center"/>
@@ -518,7 +518,7 @@
                                 </Button>
 
                                 <TextBlock Text="SYSTEM" Style="{StaticResource SidebarSectionStyle}" Foreground="#D97706"/>
-                                <Button Style="{StaticResource SidebarButtonStyle}" Click="Button_RegEdit_Click" ToolTip="Registry Editor" Tag="registry editor regedit">
+                                <Button Style="{StaticResource SidebarButtonStyle}" Click="Button_RegEdit_Click" ToolTip="Registry Editor (Administrator)" Tag="registry editor regedit">
                                     <StackPanel Orientation="Horizontal">
                                         <TextBlock Text="&#xE8A5;" Style="{StaticResource SidebarIcon}" Foreground="#D97706"/>
                                         <TextBlock Text="Registry Editor" VerticalAlignment="Center"/>
@@ -530,7 +530,7 @@
                                         <TextBlock Text="Services" VerticalAlignment="Center"/>
                                     </StackPanel>
                                 </Button>
-                                <Button Style="{StaticResource SidebarButtonStyle}" Click="Button_EventViewer_Click" ToolTip="Event Viewer" Tag="event viewer logs">
+                                <Button Style="{StaticResource SidebarButtonStyle}" Click="Button_EventViewer_Click" ToolTip="Event Viewer (Administrator)" Tag="event viewer logs">
                                     <StackPanel Orientation="Horizontal">
                                         <TextBlock Text="&#xE7BA;" Style="{StaticResource SidebarIcon}" Foreground="#D97706"/>
                                         <TextBlock Text="Event Viewer" VerticalAlignment="Center"/>
@@ -556,7 +556,7 @@
                                         <TextBlock Text="Command Prompt" VerticalAlignment="Center"/>
                                     </StackPanel>
                                 </Button>
-                                <Button Style="{StaticResource SidebarButtonStyle}" Click="Button_PowerShell_Click" ToolTip="PowerShell" Tag="powershell pwsh terminal shell">
+                                <Button Style="{StaticResource SidebarButtonStyle}" Click="Button_PowerShell_Click" ToolTip="PowerShell (Administrator)" Tag="powershell pwsh terminal shell">
                                     <StackPanel Orientation="Horizontal">
                                         <TextBlock Text="&#xE756;" Style="{StaticResource SidebarIcon}" Foreground="#4F46E5"/>
                                         <TextBlock Text="PowerShell" VerticalAlignment="Center"/>

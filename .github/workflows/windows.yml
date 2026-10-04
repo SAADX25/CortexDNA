@@ -7,13 +7,16 @@ jobs:
     runs-on: windows-latest
     env:
       DOTNET_CLI_TELEMETRY_OPTOUT: '1'
+    defaults:
+      run:
+        shell: pwsh
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-dotnet@v4
         with:
           dotnet-version: '10.0.x'
-      - run: dotnet restore Tests/CortexDNA.Tests.csproj -p:NuGetAudit=false
-      - run: dotnet build CortexDNA.csproj --no-restore -c Debug -warnaserror
-      - run: dotnet build CortexDNA.csproj --no-restore -c Release -warnaserror
-      - run: dotnet run --project Tests/CortexDNA.Tests.csproj --no-restore -c Release
+      - run: dotnet restore CortexDNA.slnx -p:NuGetAudit=false
+      - run: dotnet build CortexDNA.slnx --no-restore -c Debug -warnaserror
+      - run: dotnet build CortexDNA.slnx --no-restore -c Release -warnaserror
+      - run: dotnet test -c Release --no-restore -warnaserror --logger "trx;LogFileName=windows.trx" --results-directory artifacts/test-results
       - run: ./scripts/Build-Release.ps1 -SkipInstaller

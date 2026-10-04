@@ -1,0 +1,5 @@
+<Solution>
+  <Project Path="CortexDNA.csproj" />
+  <Project Path="Tests/CortexDNA.Tests.csproj" />
+  <Project Path="Tests/Standard/CortexDNA.AutomatedTests.csproj" />
+</Solution>

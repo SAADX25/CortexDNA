@@ -1,5 +1,5 @@
 #define MyAppName "Cortex DNA"
-#define MyAppVersion "2.0.0"
+#define MyAppVersion "2.1.0"
 #define MyAppPublisher "Cortex"
 #define MyAppExeName "CortexDNA.exe"
 #ifndef PublishDir
@@ -22,12 +22,15 @@ PrivilegesRequired=admin
 ArchitecturesAllowed=x64compatible
 ArchitecturesInstallIn64BitMode=x64compatible
 OutputDir=artifacts\installer
-OutputBaseFilename=CortexDNA_Installer_v2.0.0
+OutputBaseFilename=CortexDNA_Installer_v2.1.0
 Compression=lzma
 SolidCompression=yes
 WizardStyle=modern
 CloseApplications=yes
 RestartApplications=no
+; Older releases logged recursive UninstallDelete rules. Do not inherit them.
+; Only this install's manifest is owned; obsolete files from older versions may remain.
+UninstallLogMode=overwrite
 
 [Languages]
 Name: "english"; MessagesFile: "compiler:Default.isl"

@@ -42,6 +42,32 @@ internal static class Program
     }
     private static async Task Run()
     {
+        await Test("Registry Editor uses Windows root and requests elevation", () => Sync(() => {
+            var info = SystemToolLauncher.CreateStartInfo("regedit.exe");
+            Check(info.FileName == Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Windows), "regedit.exe"), "regedit path");
+            Check(File.Exists(info.FileName) && info.UseShellExecute && info.Verb == "runas", "elevated regedit");
+        }));
+        await Test("management consoles elevate MMC with absolute snap-in paths", () => Sync(() => {
+            foreach (string tool in new[] { "devmgmt.msc", "services.msc", "eventvwr.msc" })
+            {
+                var info = SystemToolLauncher.CreateStartInfo(tool);
+                Check(info.FileName == Path.Combine(Environment.SystemDirectory, "mmc.exe") && info.Verb == "runas", "MMC elevation");
+                Check(info.Arguments == $"\"{Path.Combine(Environment.SystemDirectory, tool)}\"" && File.Exists(Path.Combine(Environment.SystemDirectory, tool)), "snap-in path");
+            }
+        }));
+        await Test("shells and diagnostic tools request administrator", () => Sync(() => {
+            foreach (string tool in new[] { "cmd.exe", "powershell.exe", "taskmgr.exe", "resmon.exe", "ncpa.cpl" })
+            {
+                var info = SystemToolLauncher.CreateStartInfo(tool);
+                Check(info.UseShellExecute && info.Verb == "runas" && Path.IsPathFullyQualified(info.FileName) && File.Exists(info.FileName), tool);
+            }
+        }));
+        await Test("ordinary tools retain standard launch and unknown tools refused", () => Sync(() => {
+            Check(SystemToolLauncher.CreateStartInfo("msinfo32.exe").Verb != "runas", "system information");
+            Check(SystemToolLauncher.CreateStartInfo("control.exe").Verb != "runas", "control panel");
+            try { SystemToolLauncher.CreateStartInfo("unknown.exe"); throw new Exception("unknown accepted"); }
+            catch (ArgumentException) { }
+        }));
         await Test("quoted executable and untouched arguments", () => Sync(() => {
             var result = StartupPaths.SplitCommand("  \"C:\\Program Files\\Demo\\app.exe\" --name \"hello world\"  ");
             Check(result == (@"C:\Program Files\Demo\app.exe", "--name \"hello world\""), "command split");
@@ -204,13 +230,26 @@ internal static class Program
             vm.HardwareVM.RequestRefresh(); vm.HardwareVM.RequestRefresh();
             window.WindowState = WindowState.Minimized;
             window.Show(); window.WindowState = WindowState.Normal;
-            await vm.StartupVM.LoadAsync(true);
+            await vm.StartupVM.LoadAsync(true, migrateLegacy: false);
             Check(!vm.StartupVM.IsLoading, "startup loaded");
             typeof(CortexDNA.MainWindow).GetField("_isExplicitExit", BindingFlags.NonPublic | BindingFlags.Instance)!.SetValue(window, true);
             window.Close();
             await vm.HardwareVM.ShutdownAsync().WaitAsync(TimeSpan.FromSeconds(45));
             await Task.Delay(100);
             Check(!window.IsVisible, "window closed");
+        });
+        await Test("session ending defers shutdown until existing exit path completes", async () => {
+            var window = new CortexDNA.MainWindow();
+            System.Windows.Application.Current.MainWindow = window;
+            window.Show();
+            var args = (SessionEndingCancelEventArgs)Activator.CreateInstance(typeof(SessionEndingCancelEventArgs),
+                BindingFlags.Instance | BindingFlags.NonPublic, null, new object[] { ReasonSessionEnding.Shutdown }, null)!;
+            typeof(CortexDNA.App).GetMethod("OnSessionEnding", BindingFlags.NonPublic | BindingFlags.Instance)!
+                .Invoke(System.Windows.Application.Current, new object[] { args });
+            Check(args.Cancel, "session ending must not bypass resource cleanup");
+            await ((MainViewModel)window.DataContext).HardwareVM.ShutdownAsync().WaitAsync(TimeSpan.FromSeconds(15));
+            await Task.Delay(100);
+            Check(!window.IsVisible, "session-end exit completed");
         });
         // All fixture files were created by this harness; delete individual files and empty folders only.
         DeleteFixture(testRoot);

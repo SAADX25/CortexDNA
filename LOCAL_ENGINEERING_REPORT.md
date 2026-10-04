@@ -244,3 +244,26 @@ GenerateColoredCircle وCopyBiosInfo_Click، وSW_RESTORE/SetForegroundWindow/Sh
  update_xaml.py                         | 292 ---------------------
  30 files changed, 594 insertions(+), 1427 deletions(-)
 ~~~
+
+## متابعة: صلاحيات أدوات النظام ومسار Registry Editor
+
+أُصلح الخطأ في launcher السابق: regedit.exe موجود في مجلد Windows، وليس System32.
+أُضيف Core/SystemToolLauncher.cs لتحديد أدوات معروفة ومساراتها وصلاحياتها.
+Registry Editor وDevice Manager وServices وEvent Viewer وTask Manager وResource Monitor
+وNetwork Connections وCMD وPowerShell تطلب runas/UAC عند النقر. MMC consoles تشغل
+mmc.exe مع المسار المطلق للـsnap-in. إلغاء UAC (1223) يلغي الإطلاق دون نافذة خطأ.
+System Info وControl Panel يبقيان التشغيل العادي. التطبيق نفسه يبقى asInvoker.
+
+الملفات لهذه المتابعة: Core/SystemToolLauncher.cs (جديد)، MainWindow.xaml.cs،
+MainWindow.xaml، Tests/Program.cs، README.md، وهذا التقرير.
+لم تُحذف ملفات، ولم تُمس التغييرات الأخرى الموجودة عند بدء هذه المتابعة.
+
+التحقق: Debug/Release مع warnaserror، والاختبارات 31/31 ناجحة؛ اختبارات launcher
+تفحص المسارات الفعلية وrunas/MMC routing دون إطلاق برامج إدارية أو طلب UAC أثناء الاختبار.
+Publish وتجميع installer محليان ضمن scripts/Verify-Local.ps1. السجل:
+artifacts/verification/tool-launch-verification.txt.
+النسخة المثبتة في Program Files لا تتغير بتعديل المصدر؛ يلزم تثبيت الـinstaller المحلي الجديد.
+Nothing was pushed or uploaded to GitHub or any remote service.
+## Final review after Update-29
+
+See docs/UPDATE29_FINAL_REVIEW.md and docs/UPDATE29_VM_CHECKLIST.md for the final closure, native test setup, verification numbers and remaining VM release gates. This section supersedes the earlier legacy-migration/test-framework limitations. No remote changes were made.

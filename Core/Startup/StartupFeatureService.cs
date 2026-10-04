@@ -13,17 +13,17 @@ namespace CortexDNA.Core.Startup
         private readonly StartupDelayService _delay = new();
         private readonly StartupImpactService _impact = new();
 
-        public Task<StartupSnapshot> LoadAsync()
+        public Task<StartupSnapshot> LoadAsync(bool migrateLegacy = true)
         {
-            return Task.Run(Load);
+            return Task.Run(() => Load(migrateLegacy));
         }
 
-        public StartupSnapshot Load()
+        public StartupSnapshot Load(bool migrateLegacy = true)
         {
             var items = _catalog.Enumerate().ToList();
             _approval.ApplyState(items);
             StartupPackagedCatalog.ApplyState(items);
-            _delay.ApplyState(items);
+            _delay.ApplyState(items, migrateLegacy);
             StartupProcessProbe.Apply(items);
 
             var builder = new StartupSnapshotBuilder();
@@ -38,7 +38,8 @@ namespace CortexDNA.Core.Startup
                 LastBootDuration = builder.LastBootDuration,
                 LastBiosDuration = builder.LastBiosDuration,
                 LastBootTime = builder.LastBootTime,
-                DiagnosticsNote = builder.DiagnosticsNote
+                DiagnosticsNote = _delay.ReviewNotes.Count == 0 ? builder.DiagnosticsNote :
+                    string.Join(" ", new[] { builder.DiagnosticsNote }.Concat(_delay.ReviewNotes).Where(note => !string.IsNullOrEmpty(note)))
             };
         }
 

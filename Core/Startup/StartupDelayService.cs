@@ -8,13 +8,38 @@ namespace CortexDNA.Core.Startup
     /// </summary>
     public sealed class StartupDelayService
     {
-        public void ApplyState(IEnumerable<StartupItem> items)
+        public IReadOnlyList<string> ReviewNotes { get; private set; } = Array.Empty<string>();
+        private readonly IStartupDelayTaskStore _tasks = new SchedulerTaskStore();
+
+        public void ApplyState(IEnumerable<StartupItem> items, bool migrateLegacy = true)
         {
-            HashSet<string> delayed = ListDelayedTaskNames();
-            foreach (var item in items)
-                item.IsDelayed = delayed.Contains(StartupPaths.DelayTaskName(item.Id));
+            using var identity = System.Security.Principal.WindowsIdentity.GetCurrent();
+            try
+            {
+                ReviewNotes = LegacyStartupDelayMigration.Apply(items.ToArray(), _tasks,
+                    identity.User!.Value, ResolveIdentity, migrateLegacy);
+                foreach (string note in ReviewNotes) Logger.Log(note);
+            }
+            catch (Exception ex)
+            {
+                ReviewNotes = new[] { "Startup delay tasks could not be verified. No migration was performed." };
+                Logger.Log(ex);
+            }
         }
 
+        private static string? ResolveIdentity(string user)
+        {
+            if (string.IsNullOrWhiteSpace(user)) return null;
+            try
+            {
+                if (user.StartsWith("S-1-", StringComparison.OrdinalIgnoreCase))
+                    return new System.Security.Principal.SecurityIdentifier(user).Value;
+                return ((System.Security.Principal.SecurityIdentifier)new System.Security.Principal.NTAccount(user)
+                    .Translate(typeof(System.Security.Principal.SecurityIdentifier))).Value;
+            }
+            catch (Exception ex) when (ex is System.Security.Principal.IdentityNotMappedException or ArgumentException or System.Security.SecurityException)
+            { return null; }
+        }
         public void Delay(StartupItem item)
         {
             if (item.Location is not (StartupLocationKind.CurrentUserRun or StartupLocationKind.UserStartupFolder))
@@ -30,50 +55,27 @@ namespace CortexDNA.Core.Startup
             if (!string.IsNullOrEmpty(directory) &&
                 (!System.IO.Path.IsPathFullyQualified(directory) || !System.IO.Directory.Exists(directory)))
                 throw new InvalidOperationException("The shortcut's working directory is unavailable.");
+            var existing = _tasks.Read(StartupPaths.DelayTaskName(item.Id));
+            using var identity = System.Security.Principal.WindowsIdentity.GetCurrent();
+            if (existing != null && !LegacyStartupDelayMigration.Matches(existing, item, identity.User!.Value, ResolveIdentity))
+                throw new InvalidOperationException("A different or stale delay task uses this name. Review Task Scheduler first.");
             RegisterLogonTask(StartupPaths.DelayTaskName(item.Id), path, args, item.Name, directory);
             item.IsDelayed = true;
         }
 
         public void RemoveDelay(StartupItem item)
         {
-            DeleteTask(StartupPaths.DelayTaskName(item.Id));
+            var task = _tasks.Read(StartupPaths.DelayTaskName(item.Id));
+            if (task != null)
+            {
+                using var identity = System.Security.Principal.WindowsIdentity.GetCurrent();
+                if (!LegacyStartupDelayMigration.Matches(task, item, identity.User!.Value, ResolveIdentity))
+                    throw new InvalidOperationException("The delay task identity changed. Nothing was deleted.");
+                _tasks.DeleteIfUnchanged(task);
+            }
+            else if (item.IsDelayed)
+                throw new InvalidOperationException("Legacy delay is still pending review or migration. Nothing was deleted.");
             item.IsDelayed = false;
-        }
-
-        private static HashSet<string> ListDelayedTaskNames()
-        {
-            var names = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-            object? service = null;
-            object? folder = null;
-            try
-            {
-                service = Connect();
-                folder = GetFolder((dynamic)service, StartupPaths.DelayTaskFolder, create: false);
-                if (folder == null) return names;
-
-                dynamic tasks = ((dynamic)folder).GetTasks(0);
-                int count = (int)tasks.Count;
-                for (int i = 1; i <= count; i++)
-                {
-                    dynamic task = tasks[i];
-                    string? name = task.Name as string;
-                    if (!string.IsNullOrWhiteSpace(name))
-                        names.Add(name);
-                    StartupCom.Release(task);
-                }
-                StartupCom.Release(tasks);
-            }
-            catch (Exception ex)
-            {
-                Logger.Log($"Startup delay list failed: {ex.Message}");
-            }
-            finally
-            {
-                StartupCom.Release(folder);
-                StartupCom.Release(service);
-            }
-
-            return names;
         }
 
         private static void RegisterLogonTask(string taskName, string exe, string args, string displayName, string workingDirectory)
@@ -140,37 +142,128 @@ namespace CortexDNA.Core.Startup
             }
         }
 
-        private static void DeleteTask(string taskName)
+        private sealed class SchedulerTaskStore : IStartupDelayTaskStore
         {
-            object? service = null;
-            object? folder = null;
-            try
+            public IReadOnlyList<DelayTaskSnapshot> List()
             {
-                service = Connect();
-                folder = GetFolder((dynamic)service, StartupPaths.DelayTaskFolder, create: false);
-                if (folder == null) return;
-                ((dynamic)folder).DeleteTask(taskName, 0);
+                var snapshots = new List<DelayTaskSnapshot>();
+                WithFolder(folder =>
+                {
+                    object? collection = null;
+                    try
+                    {
+                        collection = folder.GetTasks(1); // Include hidden tasks; all still require identity verification.
+                        dynamic tasks = collection;
+                        for (int i = 1; i <= (int)tasks.Count; i++)
+                        {
+                            object? task = null;
+                            try { task = tasks[i]; snapshots.Add(Snapshot((dynamic)task)); }
+                            finally { StartupCom.Release(task); }
+                        }
+                    }
+                    finally { StartupCom.Release(collection); }
+                });
+                return snapshots;
             }
-            catch (Exception ex)
+            public DelayTaskSnapshot? Read(string name)
             {
-                Logger.Log($"Startup delay delete skipped: {ex.Message}");
-                throw new InvalidOperationException("Could not remove the delay task. Original startup state was retained.", ex);
+                CheckName(name);
+                DelayTaskSnapshot? result = null;
+                WithFolder(folder =>
+                {
+                    object? task = null;
+                    try { task = folder.GetTask(name); result = Snapshot((dynamic)task); }
+                    catch (System.Runtime.InteropServices.COMException ex) when (ex.HResult == unchecked((int)0x80070002)) { }
+                    finally { StartupCom.Release(task); }
+                });
+                return result;
             }
-            finally
+            public void CreateOnly(string name, string xml)
             {
-                StartupCom.Release(folder);
-                StartupCom.Release(service);
+                CheckName(name);
+                WithFolder(folder =>
+                {
+                    object? task = null;
+                    try
+                    {
+                        using var identity = System.Security.Principal.WindowsIdentity.GetCurrent();
+                        task = folder.RegisterTask(name, xml, 2, identity.User!.Value, null, 3);
+                    }
+                    finally { StartupCom.Release(task); }
+                }, requireFolder: true);
+            }
+            public void DeleteIfUnchanged(DelayTaskSnapshot expected)
+            {
+                CheckName(expected.Name);
+                if (!expected.Path.Equals(StartupPaths.DelayTaskFolder + "\\" + expected.Name, StringComparison.OrdinalIgnoreCase))
+                    throw new InvalidOperationException("Refusing to delete a task outside the delay folder.");
+                WithFolder(folder =>
+                {
+                    object? task = null;
+                    try
+                    {
+                        task = folder.GetTask(expected.Name);
+                        var current = Snapshot((dynamic)task);
+                        if (current.Xml != expected.Xml || current.IsRunning)
+                            throw new InvalidOperationException("Task changed or started running. Nothing was deleted.");
+                        folder.DeleteTask(expected.Name, 0);
+                    }
+                    finally { StartupCom.Release(task); }
+                }, requireFolder: true);
+            }
+            public DelayTaskSnapshot ReplaceIfUnchanged(DelayTaskSnapshot expected, string xml)
+            {
+                CheckName(expected.Name);
+                DelayTaskSnapshot? result = null;
+                WithFolder(folder =>
+                {
+                    object? task = null, updated = null;
+                    try
+                    {
+                        task = folder.GetTask(expected.Name);
+                        var current = Snapshot((dynamic)task);
+                        if (current.Xml != expected.Xml || current.IsRunning)
+                            throw new InvalidOperationException("New task changed; activation refused.");
+                        using var identity = System.Security.Principal.WindowsIdentity.GetCurrent();
+                        updated = folder.RegisterTask(expected.Name, xml, 4, identity.User!.Value, null, 3);
+                        result = Snapshot((dynamic)updated);
+                    }
+                    finally { StartupCom.Release(updated); StartupCom.Release(task); }
+                }, requireFolder: true);
+                return result!;
+            }
+            private static DelayTaskSnapshot Snapshot(dynamic task) =>
+                new((string)task.Name, (string)task.Path, (string)task.Xml, (int)task.State is 2 or 4);
+            private static void CheckName(string name)
+            {
+                if (string.IsNullOrEmpty(name) || name.IndexOfAny(new[] { '\\', '/' }) >= 0)
+                    throw new ArgumentException("Invalid delay task name.");
+            }
+            private static void WithFolder(Action<dynamic> action, bool requireFolder = false)
+            {
+                object? service = null, folder = null;
+                try
+                {
+                    service = Connect();
+                    folder = GetFolder((dynamic)service, StartupPaths.DelayTaskFolder, create: false);
+                    if (folder == null)
+                    {
+                        if (requireFolder) throw new InvalidOperationException("Delay folder no longer exists.");
+                        return;
+                    }
+                    action((dynamic)folder);
+                }
+                finally { StartupCom.Release(folder); StartupCom.Release(service); }
             }
         }
-
         private static object Connect()
         {
             Type type = Type.GetTypeFromProgID("Schedule.Service")
                 ?? throw new InvalidOperationException("Task Scheduler is not available.");
             dynamic service = Activator.CreateInstance(type)
                 ?? throw new InvalidOperationException("Could not open Task Scheduler.");
-            service.Connect();
-            return service;
+            try { service.Connect(); return service; }
+            catch { StartupCom.Release(service); throw; }
         }
 
         private static object? GetFolder(dynamic service, string path, bool create)
@@ -179,7 +272,7 @@ namespace CortexDNA.Core.Startup
             {
                 return service.GetFolder(path);
             }
-            catch
+            catch (System.Runtime.InteropServices.COMException ex) when (ex.HResult == unchecked((int)0x80070002))
             {
                 if (!create) return null;
             }

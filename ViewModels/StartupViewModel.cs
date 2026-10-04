@@ -233,13 +233,13 @@ namespace CortexDNA.ViewModels
             await LoadAsync(force: true);
         }
 
-        public Task LoadAsync(bool force)
+        public Task LoadAsync(bool force, bool migrateLegacy = true)
         {
             if (_disposed || _isLoading || (_loaded && !force)) return Task.CompletedTask;
-            return _loadTask = LoadCoreAsync();
+            return _loadTask = LoadCoreAsync(migrateLegacy);
         }
 
-        private async Task LoadCoreAsync()
+        private async Task LoadCoreAsync(bool migrateLegacy)
         {
             if (_disposed || _isLoading) return;
 
@@ -248,7 +248,7 @@ namespace CortexDNA.ViewModels
 
             try
             {
-                var snapshot = await _service.LoadAsync().ConfigureAwait(true);
+                var snapshot = await _service.LoadAsync(migrateLegacy).ConfigureAwait(true);
                 if (_disposed) return;
                 Items.Clear();
                 foreach (var item in snapshot.Items)

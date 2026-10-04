@@ -20,23 +20,25 @@ Building requires the .NET 10 SDK. Installer compilation requires Inno Setup 6.
 The app and build scripts run as the current user. Some hardware sensors and system cleanup
 locations require explicitly launching the application as Administrator. Access failures are
 skipped or reported; the app does not silently elevate. System tools are launched from the
-Windows system directory. Command Prompt/PowerShell inherit the app's privilege level.
+Windows system directory. Administrative tools, including Registry Editor, MMC consoles, Command Prompt and PowerShell, request elevation through UAC when clicked. Declining UAC cancels the launch. Registry Editor is resolved from the Windows directory; MMC snap-ins use the system MMC executable.
 The installer requires elevation to install into Program Files, then launches the app as the
 original user.
 
 ## Local development and verification
 
 ```powershell
-dotnet restore Tests/CortexDNA.Tests.csproj --configfile Tests/NuGet.Offline.config -p:NuGetAudit=false
+dotnet restore CortexDNA.slnx --configfile Tests/NuGet.Offline.config -p:NuGetAudit=false
 dotnet build CortexDNA.csproj --no-restore -c Debug -warnaserror
-dotnet run --project Tests/CortexDNA.Tests.csproj --no-restore -c Release
+dotnet test -c Release --no-restore -warnaserror
 powershell -NoProfile -File scripts/Verify-Local.ps1
 ```
 
 The verification script uses cached NuGet packages only. If a required package is missing,
 offline restore fails instead of contacting a package source. The console regression harness
-has no test-framework package dependency. It returns a failing exit code for any failed case;
-`dotnet test` is not a substitute for running this harness.
+has no test-framework package dependency and remains intact. The standard xUnit project
+adds migration tests and runs the complete harness as an isolated child process. `dotnet test`
+from the repository root discovers these tests through CortexDNA.slnx and produces native
+test results. The xUnit/Test SDK versions are pinned; TRX outputs stay local.
 
 The harness creates fixtures only under its build output and tests command parsing, stable
 IDs across separate processes, cleanup path restrictions, junction handling, ancestor locking,
@@ -59,9 +61,12 @@ dotnet restore CortexDNA.csproj -r win-x64 --configfile Tests/NuGet.Offline.conf
 location; no fixed drive/path or elevation is required. Each publish uses a fresh directory
 under `artifacts/publish/` to avoid packaging stale files. Set `ISCC_PATH` if Inno Setup is
 outside the standard installation path. The installer is written to
-`artifacts/installer/CortexDNA_Installer_v2.0.0.exe`. Artifacts are local and gitignored.
+`artifacts/installer/CortexDNA_Installer_v2.1.0.exe`. Artifacts are local and gitignored.
 The installer removes only installer-owned files; it does not recursively erase the install
-folder or user profile data and does not force-kill unrelated processes.
+folder or user profile data and does not force-kill unrelated processes. It overwrites the
+uninstall ownership log to avoid inheriting recursive deletion rules from old releases; obsolete
+old-version-only files/shortcuts can remain and need verification in a disposable VM. Both
+LocalAppData/CortexDNA and AppData/CortexDNA data are intentionally retained on uninstall.
 
 ## Cleanup safety
 
@@ -91,8 +96,11 @@ Packaged-app changes require an existing exact task key and cannot override poli
 create speculative registry keys. Delay registration/removal failures are surfaced, with
 rollback where possible.
 
-Old delayed tasks created by previous randomized IDs are not automatically migrated/deleted.
-Review `Task Scheduler > CortexDNA > StartupDelay` before reapplying delay for an older item.
+Old 8-hex randomized Delay IDs are recognized and migrated only within the exact StartupDelay
+folder after unique description/action/arguments/working-directory/user/trigger verification.
+The new task starts disabled, is verified and activated before the old verified definition is
+deleted. Conflicts, running tasks and uncertain definitions remain for review in DiagnosticsNote
+and the local log. The regression smoke explicitly disables migration and never changes host tasks.
 Valid shortcut working directories are preserved in the scheduled action; unavailable
 directories are refused. Registry approval behavior and packaged startup
 state are Windows-dependent and still require testing on the target Windows versions.
@@ -116,3 +124,4 @@ vulnerability-feed audit was not performed in this local-only pass.
 
 See `LOCAL_ENGINEERING_REPORT.md` for findings, changed/deleted files and verification results.
 No LICENSE file exists in the local repository; no license was invented as part of this pass.
+See [the Update-29 VM checklist](docs/UPDATE29_VM_CHECKLIST.md) for installer, real services and startup integration release gates. CI failure propagation can be checked locally with scripts/Verify-CIFailureModes.ps1.

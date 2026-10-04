@@ -252,8 +252,7 @@ namespace CortexDNA
                 // 4. Exit
                 contextMenu.Items.Add("Exit", null, (s, e) => 
                 {
-                    _isExplicitExit = true;
-                    Close();
+                    RequestExit();
                 });
 
                 _notifyIcon.ContextMenuStrip = contextMenu;
@@ -317,6 +316,11 @@ namespace CortexDNA
 
         private bool _shutdownComplete;
         private bool _shutdownStarted;
+        internal void RequestExit()
+        {
+            _isExplicitExit = true;
+            Close();
+        }
         protected override async void OnClosing(System.ComponentModel.CancelEventArgs e)
         {
             if (!_isExplicitExit)
@@ -634,24 +638,23 @@ namespace CortexDNA
             public double OpacityPercent { get; set; }
         }
 
-        private void OpenSystemTool(string command, string args = "")
+        private void OpenSystemTool(string command)
         {
             try
             {
-                command = command.Equals("powershell.exe", StringComparison.OrdinalIgnoreCase)
-                    ? Path.Combine(Environment.SystemDirectory, @"WindowsPowerShell\v1.0\powershell.exe")
-                    : Path.Combine(Environment.SystemDirectory, command);
-                var psi = new System.Diagnostics.ProcessStartInfo(command, args)
-                {
-                    UseShellExecute = true
-                };
+                var psi = Core.SystemToolLauncher.CreateStartInfo(command);
                 using (var process = System.Diagnostics.Process.Start(psi))
                 {
                     // Fire and forget, but dispose the wrapper handle right away
                 }
             }
+            catch (System.ComponentModel.Win32Exception ex) when (ex.NativeErrorCode == 1223)
+            {
+                // The user declined the UAC prompt.
+            }
             catch (Exception ex)
             {
+                Core.Logger.Log(ex);
                 MessageBox.Show($"Could not launch tool: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
             }
         }

@@ -19,13 +19,15 @@ namespace CortexDNA
             try
             {
                 var assembly = Assembly.GetEntryAssembly();
-                var fullVersion = assembly?.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion ?? "v2.0.0";
+                var fullVersion = assembly?.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion ?? "v2.1.0";
 
                 // Split at the plus sign to separate the master version from the git commit hash
                 if (fullVersion.Contains('+'))
                 {
                     var parts = fullVersion.Split('+');
-                    TxtMainVersion.Text = $"Version: {parts[0]}";
+                    string ver = parts[0];
+                    if (!ver.StartsWith("v", StringComparison.OrdinalIgnoreCase)) ver = "v" + ver;
+                    TxtMainVersion.Text = $"Version: {ver}";
                     
                     // Show a shortened version of the hash to keep it subtle and clean
                     string hash = parts[1];
@@ -35,14 +37,16 @@ namespace CortexDNA
                 }
                 else
                 {
-                    TxtMainVersion.Text = $"Version: {fullVersion}";
+                    string ver = fullVersion;
+                    if (!ver.StartsWith("v", StringComparison.OrdinalIgnoreCase)) ver = "v" + ver;
+                    TxtMainVersion.Text = $"Version: {ver}";
                     TxtSubVersion.Text = string.Empty;
                     TxtSubVersion.Visibility = Visibility.Collapsed;
                 }
             }
             catch
             {
-                TxtMainVersion.Text = "Version: v2.0.0";
+                TxtMainVersion.Text = "Version: v2.1.0";
                 TxtSubVersion.Visibility = Visibility.Collapsed;
             }
         }

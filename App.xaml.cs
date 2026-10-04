@@ -55,7 +55,7 @@ public partial class App : System.Windows.Application
         RenderOptions.ProcessRenderMode = RenderMode.Default;
         
         // Log Startup
-        Logger.Log("Application Starting (v2.0.0) - RenderMode: Default");
+        Logger.Log("Application Starting (v2.1.0) - RenderMode: Default");
 
         base.OnStartup(e);
 
@@ -70,6 +70,18 @@ public partial class App : System.Windows.Application
             Logger.Log(args.Exception);
             // Leave unexpected UI failures unhandled; suppressing them can retain corrupt state.
         };
+    }
+
+    protected override void OnSessionEnding(SessionEndingCancelEventArgs e)
+    {
+        base.OnSessionEnding(e);
+        if (MainWindow is CortexDNA.MainWindow window)
+        {
+            // Session shutdown bypasses cancellable Window.Closing. Defer it and use
+            // the existing asynchronous exit path so service restoration can complete.
+            e.Cancel = true;
+            window.RequestExit();
+        }
     }
 
     protected override void OnExit(ExitEventArgs e)
