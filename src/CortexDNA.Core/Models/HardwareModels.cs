@@ -186,12 +186,5 @@ namespace CortexDNA.Models
             get => _usageText;
             set => SetProperty(ref _usageText, value);
         }
-
-        private string _usedColor = "#00ADEF";
-        public string UsedColor
-        {
-            get => _usedColor;
-            set => SetProperty(ref _usedColor, value);
-        }
     }
 }

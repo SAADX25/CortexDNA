@@ -1,0 +1,19 @@
+<UserControl x:Class="CortexDNA.Views.Pages.GamingPage" xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:controls="clr-namespace:CortexDNA.Controls" Focusable="False">
+  <StackPanel>
+    <Border Style="{StaticResource CardStyle}">
+      <StackPanel>
+        <TextBlock Text="Automatic polling reduction" Style="{StaticResource TitleText}" Margin="0,0,0,12" />
+        <TextBlock Text="{Binding Hardware.StatusMessage}" Style="{StaticResource ValueText}" Margin="0,0,0,12" />
+        <TextBlock Text="CortexDNA already reduces sensor polling when a known game process is detected. This page adds no performance changes or FPS claims." />
+        <CheckBox Content="Existing automatic game mode is active" IsChecked="{Binding Hardware.IsGameModeActive, Mode=OneWay}" IsEnabled="False" Margin="0,20,0,0" />
+      </StackPanel>
+    </Border>
+    <Border Style="{StaticResource CardStyle}" Margin="0,16,0,0">
+      <StackPanel>
+        <TextBlock Text="Memory" Style="{StaticResource TitleText}" />
+        <TextBlock Text="{Binding Hardware.SystemInfo.RamUsageText}" Margin="0,12,0,20" />
+        <Button Content="View live hardware" Command="{Binding Shell.NavigateCommand}" CommandParameter="Hardware" Margin="0,0,12,0" />
+      </StackPanel>
+    </Border>
+  </StackPanel>
+</UserControl>

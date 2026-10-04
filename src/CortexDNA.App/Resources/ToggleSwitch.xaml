@@ -1,0 +1,26 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:ui="clr-namespace:CortexDNA.UI">
+  <Style x:Key="MiniToggle" TargetType="ToggleButton">
+    <Setter Property="Width" Value="42" />
+    <Setter Property="Height" Value="24" />
+    <Setter Property="Cursor" Value="Hand" />
+    <Setter Property="FocusVisualStyle" Value="{StaticResource FocusIndicator}" />
+    <Setter Property="Template">
+      <Setter.Value>
+        <ControlTemplate TargetType="ToggleButton">
+          <Border x:Name="Rail" Background="{DynamicResource CardBorderBrush}" CornerRadius="12">
+            <Ellipse x:Name="Dot" Fill="{DynamicResource PrimaryTextBrush}" Width="16" Height="16" HorizontalAlignment="Left" Margin="4" />
+          </Border>
+          <ControlTemplate.Triggers>
+            <Trigger Property="IsChecked" Value="True">
+              <Setter TargetName="Rail" Property="Background" Value="{DynamicResource AccentBrush}" />
+              <Setter TargetName="Dot" Property="HorizontalAlignment" Value="Right" />
+            </Trigger>
+            <Trigger Property="IsEnabled" Value="False">
+              <Setter Property="Opacity" Value="0.4" />
+            </Trigger>
+          </ControlTemplate.Triggers>
+        </ControlTemplate>
+      </Setter.Value>
+    </Setter>
+  </Style>
+</ResourceDictionary>

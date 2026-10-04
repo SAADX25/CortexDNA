@@ -1,0 +1,29 @@
+<UserControl x:Class="CortexDNA.Views.Pages.CleanupPage" xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:controls="clr-namespace:CortexDNA.Controls" Focusable="False">
+  <StackPanel>
+    <Border Style="{StaticResource CardStyle}">
+      <StackPanel>
+        <TextBlock Text="Review first. Remove only what you choose." Style="{StaticResource TitleText}" Margin="0,0,0,12" />
+        <TextBlock Text="The scan covers the existing approved cleanup locations. Nothing is removed until you select items and confirm." Margin="0,0,0,20" />
+        <Button Content="{Binding Hardware.CleanDiskButtonText}" Command="{Binding Hardware.CleanDiskCommand}" IsEnabled="{Binding Hardware.IsCleanDiskEnabled}" Style="{StaticResource PrimaryButtonStyle}" HorizontalAlignment="Left" AutomationProperties.Name="Scan existing cleanup locations" />
+      </StackPanel>
+    </Border>
+    <Border Style="{StaticResource CardStyle}" Margin="0,16,0,0">
+      <StackPanel>
+        <TextBlock Text="Included locations" Style="{StaticResource TitleText}" Margin="0,0,0,16" />
+        <ItemsControl ItemsSource="{Binding Locations}">
+          <ItemsControl.ItemTemplate>
+            <DataTemplate>
+              <Border BorderBrush="{DynamicResource CardBorderBrush}" BorderThickness="0,0,0,1" Padding="0,12">
+                <StackPanel>
+                  <TextBlock Text="{Binding Name}" Foreground="{DynamicResource PrimaryTextBrush}" FontWeight="SemiBold" />
+                  <TextBlock Text="{Binding Warning}" Foreground="{DynamicResource WarningBrush}" Margin="0,4,0,0" />
+                </StackPanel>
+              </Border>
+            </DataTemplate>
+          </ItemsControl.ItemTemplate>
+        </ItemsControl>
+        <TextBlock Text="Advanced locations are not selected by default. Windows Update cleanup temporarily stops and restores the required services." Margin="0,20,0,0" />
+      </StackPanel>
+    </Border>
+  </StackPanel>
+</UserControl>

@@ -18,6 +18,8 @@ using System.Windows.Input;
 using System.Text.Json;
 using CortexDNA.Core;
 using CortexDNA.Hardware;
+using CortexDNA.Services;
+using CortexDNA.UI;
 using Microsoft.Win32;
 using System.Runtime.InteropServices;
 
@@ -67,12 +69,8 @@ namespace CortexDNA.ViewModels
             set => SetProperty(ref _boostButtonText, value);
         }
 
-        private string _boostButtonColor = "#00ADEF";
-        public string BoostButtonColor
-        {
-            get => _boostButtonColor;
-            set => SetProperty(ref _boostButtonColor, value);
-        }
+        private UiState _boostState = UiState.Idle;
+        public UiState BoostState { get => _boostState; private set => SetProperty(ref _boostState, value); }
 
         private bool _isBoostEnabled = true;
         public bool IsBoostEnabled
@@ -96,6 +94,12 @@ namespace CortexDNA.ViewModels
         }
 
         private bool _isCleaningDisk;
+        public bool IsCleaningDisk { get => _isCleaningDisk; private set => SetProperty(ref _isCleaningDisk, value); }
+        private double _operationProgress;
+        public double OperationProgress { get => _operationProgress; private set => SetProperty(ref _operationProgress, value); }
+        public bool IsGameModeActive => _isGameModeActive;
+        internal ICleanupService CleanupService => _diskCleanup;
+        private readonly IDialogService _dialogs;
 
 
         private string _cpuName = "Detecting CPU...";
@@ -148,27 +152,32 @@ namespace CortexDNA.ViewModels
         private readonly HashSet<string> _gameProcessSet;
         private readonly ICleanupService _diskCleanup;
         private readonly IMemoryOptimizer _memoryOptimizer;
-        
+
         private readonly string _specsCachePath;
 
         // List of processes that trigger Game Mode
-        private readonly string[] _gameProcesses = new[] 
-        { 
-            "cs2", 
-            "valorant-win64-shipping", 
+        private readonly string[] _gameProcesses = new[]
+        {
+            "cs2",
+            "valorant-win64-shipping",
             "vgc",
-            "r5apex", 
+            "r5apex",
             "fortnite-win64-shipping",
-            "cod", 
+            "cod",
             "gta5",
             "overwatch"
         };
 
         public HardwareViewModel() : this(AppComposition.CreateCleanupService(),
-            AppComposition.CreateMemoryOptimizer(), AppComposition.CreateHardwareSession()) { }
+            AppComposition.CreateMemoryOptimizer(), AppComposition.CreateHardwareSession())
+        { }
 
         public HardwareViewModel(ICleanupService cleanup, IMemoryOptimizer memoryOptimizer, IHardwareSession hardware)
+            : this(cleanup, memoryOptimizer, hardware, AppComposition.CreateDialogService()) { }
+
+        public HardwareViewModel(ICleanupService cleanup, IMemoryOptimizer memoryOptimizer, IHardwareSession hardware, IDialogService dialogs)
         {
+            _dialogs = dialogs ?? throw new ArgumentNullException(nameof(dialogs));
             _diskCleanup = cleanup ?? throw new ArgumentNullException(nameof(cleanup));
             _memoryOptimizer = memoryOptimizer ?? throw new ArgumentNullException(nameof(memoryOptimizer));
             _computer = hardware ?? throw new ArgumentNullException(nameof(hardware));
@@ -226,7 +235,7 @@ namespace CortexDNA.ViewModels
             sb.AppendLine($"BIOS Version: {SystemInfo.BiosVersion}");
             sb.AppendLine($"BIOS Date: {SystemInfo.BiosDate}");
             sb.AppendLine($"Edition: {SystemInfo.OsName}");
-            
+
             try
             {
                 System.Windows.Clipboard.SetText(sb.ToString());
@@ -257,9 +266,9 @@ namespace CortexDNA.ViewModels
             _isPaused = false;
             if (_hardwareReady) _timer?.Start();
             Logger.Log("Monitoring Resumed");
-            
+
             // Force immediate update
-            RefreshData(); 
+            RefreshData();
         }
 
         public void RequestRefresh()
@@ -289,7 +298,8 @@ namespace CortexDNA.ViewModels
                 }
                 _lifetime.Token.ThrowIfCancellationRequested();
                 RefreshSystemInfo();
-                InvokeUi(() => {
+                InvokeUi(() =>
+                {
                     _hardwareReady = true;
                     StatusMessage = "Monitoring Active";
                     if (!_isPaused) _timer.Start();
@@ -334,7 +344,7 @@ namespace CortexDNA.ViewModels
                 _cpuPerfCounter = null;
             }
         }
-        
+
         private void UpdateUptime()
         {
             TimeSpan uptime = TimeSpan.FromMilliseconds(Environment.TickCount64);
@@ -351,17 +361,17 @@ namespace CortexDNA.ViewModels
 
         private void UpdateOrAddSensor(HardwareItem item, string name, string type, string value)
         {
-             var existing = item.Sensors.FirstOrDefault(s => s.Name == name && s.Type == type);
-             if (existing == null)
-             {
-                 item.Sensors.Add(new SensorInfo { Name = name, Type = type, Value = value });
-             }
-             else
-             {
-                 existing.Value = value;
-             }
+            var existing = item.Sensors.FirstOrDefault(s => s.Name == name && s.Type == type);
+            if (existing == null)
+            {
+                item.Sensors.Add(new SensorInfo { Name = name, Type = type, Value = value });
+            }
+            else
+            {
+                existing.Value = value;
+            }
         }
-        
+
         private bool IsRunningAsAdmin()
         {
             using (var identity = WindowsIdentity.GetCurrent())
@@ -379,7 +389,7 @@ namespace CortexDNA.ViewModels
                 {
                     string json = File.ReadAllText(_specsCachePath);
                     var specs = JsonSerializer.Deserialize<SystemSpecs>(json);
-                    
+
                     // 2. Add a Null Check
                     if (specs != null)
                     {
@@ -388,7 +398,7 @@ namespace CortexDNA.ViewModels
                         SystemInfo.MotherboardModel = specs.MotherboardModel ?? "Detecting...";
                         SystemInfo.BiosVersion = specs.BiosVersion ?? "Detecting...";
                         SystemInfo.BiosDate = specs.BiosDate ?? "Detecting...";
-                        
+
                         CpuName = specs.CpuName ?? "Detecting...";
                         GpuName = specs.GpuName ?? "Detecting...";
                         SystemInfo.RamInfo = specs.RamInfo ?? "Detecting...";
@@ -398,8 +408,8 @@ namespace CortexDNA.ViewModels
                     }
                 }
             }
-            catch 
-            { 
+            catch
+            {
                 // 1. Wrap the Cache Loading in Try-Catch
                 // If it fails or the file is corrupted, just ignore it and proceed.
             }
@@ -644,43 +654,43 @@ namespace CortexDNA.ViewModels
                 bool shouldCheckGames = (++_gameCheckCounter % 5 == 0) || _isGameModeActive;
 
                 // 1. Background Work: Fetch all heavy data off the UI thread
-                var data = await Task.Run(() => 
+                var data = await Task.Run(() =>
                 {
                     lock (_hardwareLock)
                     {
-                    _lifetime.Token.ThrowIfCancellationRequested();
-                    bool? gameFound = null;
-                    if (shouldCheckGames)
-                        gameFound = IsGameProcessRunning();
+                        _lifetime.Token.ThrowIfCancellationRequested();
+                        bool? gameFound = null;
+                        if (shouldCheckGames)
+                            gameFound = IsGameProcessRunning();
 
-                    // If Game Mode is active, SKIP LibreHardwareMonitor entirely
-                    if (!_isGameModeActive)
-                    {
-                        // Update only enabled hardware (CPU + GPU) — no double Update
-                        _computer.Refresh();
-                    }
+                        // If Game Mode is active, SKIP LibreHardwareMonitor entirely
+                        if (!_isGameModeActive)
+                        {
+                            // Update only enabled hardware (CPU + GPU) — no double Update
+                            _computer.Refresh();
+                        }
 
-                    // Performance Counters (Lightweight)
-                    float cpuPerf = 0;
-                    if (_cpuPerfCounter != null)
-                    {
-                        try { cpuPerf = _cpuPerfCounter.NextValue(); }
-                        catch { cpuPerf = 0; }
-                    }
+                        // Performance Counters (Lightweight)
+                        float cpuPerf = 0;
+                        if (_cpuPerfCounter != null)
+                        {
+                            try { cpuPerf = _cpuPerfCounter.NextValue(); }
+                            catch { cpuPerf = 0; }
+                        }
 
-                    NativeMethods.MEMORYSTATUSEX memStatus = new NativeMethods.MEMORYSTATUSEX();
-                    memStatus.dwLength = (uint)Marshal.SizeOf(typeof(NativeMethods.MEMORYSTATUSEX));
-                    float ramAvailable = 0;
-                    if (NativeMethods.GlobalMemoryStatusEx(ref memStatus))
-                    {
-                        ramAvailable = memStatus.ullAvailPhys / (1024f * 1024f); 
-                        if (_totalRamBytes == 0) _totalRamBytes = memStatus.ullTotalPhys;
-                    }
+                        NativeMethods.MEMORYSTATUSEX memStatus = new NativeMethods.MEMORYSTATUSEX();
+                        memStatus.dwLength = (uint)Marshal.SizeOf(typeof(NativeMethods.MEMORYSTATUSEX));
+                        float ramAvailable = 0;
+                        if (NativeMethods.GlobalMemoryStatusEx(ref memStatus))
+                        {
+                            ramAvailable = memStatus.ullAvailPhys / (1024f * 1024f);
+                            if (_totalRamBytes == 0) _totalRamBytes = memStatus.ullTotalPhys;
+                        }
 
-                    var netStats = GetNetworkStatsSnapshot();
-                    var storageStats = _isGameModeActive ? new System.Collections.Generic.List<StorageDto>() : GetStorageStatsSnapshot();
+                        var netStats = GetNetworkStatsSnapshot();
+                        var storageStats = _isGameModeActive ? new System.Collections.Generic.List<StorageDto>() : GetStorageStatsSnapshot();
 
-                    return new { CpuPerf = cpuPerf, RamAvailable = ramAvailable, NetStats = netStats, StorageStats = storageStats, GameFound = gameFound };
+                        return new { CpuPerf = cpuPerf, RamAvailable = ramAvailable, NetStats = netStats, StorageStats = storageStats, GameFound = gameFound };
                     }
                 }, _lifetime.Token);
                 if (_disposed || _isPaused) return;
@@ -694,15 +704,15 @@ namespace CortexDNA.ViewModels
                 {
                     UpdateHardwareUI(data.CpuPerf);
                 }
-                
+
                 UpdateRamUI(data.RamAvailable);
                 UpdateNetworkUI(data.NetStats);
-                
+
                 if (!_isGameModeActive)
                 {
                     UpdateStorageUI(data.StorageStats);
                 }
-                
+
                 UpdateUptime();
             }
             catch (OperationCanceledException) { }
@@ -745,27 +755,29 @@ namespace CortexDNA.ViewModels
             if (gameFound && !_isGameModeActive)
             {
                 _isGameModeActive = true;
+                OnPropertyChanged(nameof(IsGameModeActive));
                 _timer.Interval = TimeSpan.FromSeconds(10);
                 StatusMessage = "Gaming Mode Active - Sensors Throttled";
-                
-                try 
-                { 
+
+                try
+                {
                     using (Process p = Process.GetCurrentProcess())
-                        p.PriorityClass = ProcessPriorityClass.BelowNormal; 
-                } 
+                        p.PriorityClass = ProcessPriorityClass.BelowNormal;
+                }
                 catch { }
             }
             else if (!gameFound && _isGameModeActive)
             {
                 _isGameModeActive = false;
+                OnPropertyChanged(nameof(IsGameModeActive));
                 _timer.Interval = TimeSpan.FromSeconds(1);
                 StatusMessage = "Monitoring Active";
-                
-                try 
-                { 
+
+                try
+                {
                     using (Process p = Process.GetCurrentProcess())
-                        p.PriorityClass = ProcessPriorityClass.Normal; 
-                } 
+                        p.PriorityClass = ProcessPriorityClass.Normal;
+                }
                 catch { }
             }
         }
@@ -822,7 +834,7 @@ namespace CortexDNA.ViewModels
         private System.Collections.Generic.List<StorageDto> GetStorageStatsSnapshot()
         {
             var results = new System.Collections.Generic.List<StorageDto>();
-            try 
+            try
             {
                 var drives = DriveInfo.GetDrives().Where(d => d.IsReady).ToList();
                 foreach (var drive in drives)
@@ -831,7 +843,6 @@ namespace CortexDNA.ViewModels
                     double freeSpaceGb = drive.AvailableFreeSpace / (1024.0 * 1024 * 1024);
                     double usedSpaceGb = totalSizeGb - freeSpaceGb;
                     double usagePercent = (usedSpaceGb / totalSizeGb) * 100;
-                    string color = usagePercent > 90 ? "#FF5555" : "#00ADEF";
 
                     results.Add(new StorageDto
                     {
@@ -840,8 +851,7 @@ namespace CortexDNA.ViewModels
                         TotalSize = $"{totalSizeGb:F0} GB",
                         FreeSpace = $"{freeSpaceGb:F0} GB free",
                         UsagePercentage = usagePercent,
-                        UsageText = $"{usagePercent:F1}%",
-                        UsedColor = color
+                        UsageText = $"{usagePercent:F1}%"
                     });
                 }
             }
@@ -857,9 +867,9 @@ namespace CortexDNA.ViewModels
             var cpus = _computer.Hardware.Where(h => h.HardwareType == HardwareType.Cpu).ToList();
             UpdateHardwareCollection(cpus, CpuList, "CPU", cpuPerfPercent);
 
-            var gpus = _computer.Hardware.Where(h => 
-                h.HardwareType == HardwareType.GpuNvidia || 
-                h.HardwareType == HardwareType.GpuAmd || 
+            var gpus = _computer.Hardware.Where(h =>
+                h.HardwareType == HardwareType.GpuNvidia ||
+                h.HardwareType == HardwareType.GpuAmd ||
                 h.HardwareType == HardwareType.GpuIntel).ToList();
             UpdateHardwareCollection(gpus, GpuList, "GPU", 0);
         }
@@ -873,7 +883,7 @@ namespace CortexDNA.ViewModels
                 double percent = (usedMb / totalMb) * 100;
 
                 SystemInfo.RamUsagePercent = percent;
-                SystemInfo.RamUsageText = $"{usedMb/1024.0:F1} / {totalMb/1024.0:F1} GB ({percent:F0}%)";
+                SystemInfo.RamUsageText = $"{usedMb / 1024.0:F1} / {totalMb / 1024.0:F1} GB ({percent:F0}%)";
             }
         }
 
@@ -897,8 +907,7 @@ namespace CortexDNA.ViewModels
                         TotalSize = dto.TotalSize,
                         FreeSpace = dto.FreeSpace,
                         UsagePercentage = dto.UsagePercentage,
-                        UsageText = dto.UsageText,
-                        UsedColor = dto.UsedColor
+                        UsageText = dto.UsageText
                     });
                 }
                 else
@@ -906,7 +915,7 @@ namespace CortexDNA.ViewModels
                     existing.FreeSpace = dto.FreeSpace;
                     existing.UsagePercentage = dto.UsagePercentage;
                     existing.UsageText = dto.UsageText;
-                    existing.UsedColor = dto.UsedColor;
+
                 }
             }
         }
@@ -925,8 +934,8 @@ namespace CortexDNA.ViewModels
 
                 UpdateSensors(hw, existingItem, cpuPerf);
             }
-            
-             for (int i = targetCollection.Count - 1; i >= 0; i--)
+
+            for (int i = targetCollection.Count - 1; i >= 0; i--)
             {
                 if (!hardwareSource.Any(h => h.Name == targetCollection[i].Name))
                 {
@@ -967,19 +976,19 @@ namespace CortexDNA.ViewModels
                     if (isInteresting)
                     {
                         string val = "--"; // Default robust fallback
-                        
+
                         if (sensor.Value.HasValue && !float.IsNaN(sensor.Value.Value))
                         {
-                            val = sensor.SensorType == SensorType.Temperature 
-                                ? $"{sensor.Value.Value:F0} °C" 
+                            val = sensor.SensorType == SensorType.Temperature
+                                ? $"{sensor.Value.Value:F0} °C"
                                 : $"{sensor.Value.Value:F1} %";
                         }
-                        
+
                         UpdateOrAddSensor(item, sensor.Name, sensor.SensorType.ToString(), val);
                     }
                 }
             }
-            
+
             // Cleanup Logic...
             for (int i = item.Sensors.Count - 1; i >= 0; i--)
             {
@@ -990,12 +999,12 @@ namespace CortexDNA.ViewModels
                 {
                     // Strict Match Check
                     var sourceSensor = sensors.FirstOrDefault(src => src.Name == s.Name && src.SensorType.ToString() == s.Type);
-                    
+
                     // If source is gone, OR if value is invalid/null, mark it as stale or remove it.
                     // Here we remove it to keep UI clean, but could also set to "--"
                     if (sourceSensor == null)
                     {
-                         item.Sensors.RemoveAt(i);
+                        item.Sensors.RemoveAt(i);
                     }
                 }
             }
@@ -1010,7 +1019,6 @@ namespace CortexDNA.ViewModels
             public string FreeSpace { get; set; }
             public double UsagePercentage { get; set; }
             public string UsageText { get; set; }
-            public string UsedColor { get; set; }
         }
 
         private void BoostSystem()
@@ -1020,13 +1028,13 @@ namespace CortexDNA.ViewModels
         private async Task BoostSystemAsync()
         {
             if (_disposed || IsBoosting || _isCleaningDisk) return;
-            if (System.Windows.MessageBox.Show("Trimming your background apps can temporarily free RAM but may slow their next use. Continue?", "RAM Boost", MessageBoxButton.YesNo, MessageBoxImage.Question) != MessageBoxResult.Yes) return;
+            if (!_dialogs.Confirm("RAM Boost", "Trimming your background apps can temporarily free RAM but may slow their next use. Continue?")) return;
             IsBoosting = true;
             IsBoostEnabled = false;
             IsCleanDiskEnabled = false;
 
             BoostButtonText = "Optimizing...";
-            BoostButtonColor = "#444444";
+            BoostState = UiState.Running;
 
             try
             {
@@ -1036,14 +1044,15 @@ namespace CortexDNA.ViewModels
                 {
                     StatusMessage = result.ErrorMessage ?? "Boost failed";
                     BoostButtonText = "Error";
-                    BoostButtonColor = "#dc3545";
+                    BoostState = UiState.Error;
                     await Task.Delay(1800, _lifetime.Token).ConfigureAwait(true);
                     return;
                 }
 
                 int reclaimed = (int)Math.Round(result.ReclaimedMb);
+                _dialogs.Notify(reclaimed > 0 ? $"Temporarily reclaimed ~{reclaimed} MB of RAM" : "Working sets trimmed (little free RAM change)", UiState.Success);
                 BoostButtonText = reclaimed > 0 ? $"~{reclaimed} MB" : "Done";
-                BoostButtonColor = "#28a745";
+                BoostState = UiState.Success;
                 StatusMessage = reclaimed > 0
                     ? $"Temporarily reclaimed ~{reclaimed} MB of RAM"
                     : "Working sets trimmed (little free RAM change)";
@@ -1057,12 +1066,12 @@ namespace CortexDNA.ViewModels
                 Logger.Log(ex);
                 StatusMessage = "Boost failed unexpectedly";
                 BoostButtonText = "Error";
-                BoostButtonColor = "#dc3545";
+                BoostState = UiState.Error;
             }
             finally
             {
                 BoostButtonText = "BOOST";
-                BoostButtonColor = "#00ADEF";
+                BoostState = UiState.Idle;
                 IsBoosting = false;
                 IsBoostEnabled = true;
                 IsCleanDiskEnabled = !_isCleaningDisk;
@@ -1076,7 +1085,8 @@ namespace CortexDNA.ViewModels
         private async Task ExecuteCleanDiskAsync()
         {
             if (_disposed || _isCleaningDisk || IsBoosting) return;
-            _isCleaningDisk = true;
+            IsCleaningDisk = true;
+            OperationProgress = 0;
             IsCleanDiskEnabled = false;
             IsBoostEnabled = false;
 
@@ -1089,6 +1099,7 @@ namespace CortexDNA.ViewModels
                 var progress = new Progress<CleanupProgress>(p =>
                 {
                     if (_disposed) return;
+                    OperationProgress = p.Percent;
                     if (!string.IsNullOrWhiteSpace(p.Message))
                         CleanDiskButtonText = p.Percent > 0 && p.Percent < 100
                             ? $"{p.Percent}%"
@@ -1109,13 +1120,8 @@ namespace CortexDNA.ViewModels
                 }
 
                 if (_disposed) return;
-                var dialog = new CleanConfirmationWindow(scanResult.Locations)
-                {
-                    Owner = System.Windows.Application.Current?.MainWindow
-                };
-
-                bool? confirmed = dialog.ShowDialog();
-                if (confirmed != true || dialog.SelectedLocations.Count == 0)
+                var selectedLocations = _dialogs.ConfirmCleanup(scanResult.Locations);
+                if (selectedLocations == null || selectedLocations.Count == 0)
                 {
                     StatusMessage = "Monitoring Active";
                     return;
@@ -1127,6 +1133,7 @@ namespace CortexDNA.ViewModels
                 var cleanProgress = new Progress<CleanupProgress>(p =>
                 {
                     if (_disposed) return;
+                    OperationProgress = p.Percent;
                     CleanDiskButtonText = p.Percent is > 0 and < 100 ? $"{p.Percent}%" : "Cleaning...";
                     if (_disposed) return;
                     if (!string.IsNullOrWhiteSpace(p.Message))
@@ -1136,7 +1143,7 @@ namespace CortexDNA.ViewModels
                 CleanupCleanResult cleanResult;
                 try
                 {
-                    cleanResult = await _diskCleanup.CleanAsync(dialog.SelectedLocations, cleanProgress, _lifetime.Token).ConfigureAwait(true);
+                    cleanResult = await _diskCleanup.CleanAsync(selectedLocations, cleanProgress, _lifetime.Token).ConfigureAwait(true);
                 }
                 catch (Exception ex)
                 {
@@ -1154,11 +1161,7 @@ namespace CortexDNA.ViewModels
 
                 try { System.Media.SystemSounds.Exclamation.Play(); } catch { }
 
-                var resultWindow = new CleanupResultsWindow(cleanResult.FreedBytes, cleanResult.DeletedFiles)
-                {
-                    Owner = System.Windows.Application.Current?.MainWindow
-                };
-                resultWindow.ShowDialog();
+                _dialogs.ShowCleanupResult(cleanResult);
 
                 StatusMessage = cleanResult.FailedFiles > 0
                     ? $"Freed {DiskCleanupService.FormatByteSize(cleanResult.FreedBytes)} ({cleanResult.FailedFiles} files skipped)"
@@ -1171,7 +1174,7 @@ namespace CortexDNA.ViewModels
             }
             finally
             {
-                _isCleaningDisk = false;
+                IsCleaningDisk = false;
                 CleanDiskButtonText = "CLEAN DISK";
                 IsCleanDiskEnabled = true;
                 IsBoostEnabled = !IsBoosting;
@@ -1201,7 +1204,8 @@ namespace CortexDNA.ViewModels
             try { await Task.WhenAll(_initialization, _refreshTask, _boostTask, _cleanupTask); }
             catch (OperationCanceledException) { }
             catch (Exception ex) { Logger.Log(ex); }
-            await Task.Run(() => {
+            await Task.Run(() =>
+            {
                 lock (_hardwareLock)
                 {
                     try { _computer.Close(); } catch (Exception ex) { Logger.Log(ex); }

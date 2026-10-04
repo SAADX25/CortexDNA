@@ -9,4 +9,5 @@
   <Project Path="src/CortexDNA.Infrastructure/CortexDNA.Infrastructure.csproj" />
   <Project Path="Tests/CortexDNA.Tests.csproj" />
   <Project Path="Tests/Standard/CortexDNA.AutomatedTests.csproj" />
+  <Project Path="Tests/UiSmoke/CortexDNA.UiSmoke.csproj" />
 </Solution>

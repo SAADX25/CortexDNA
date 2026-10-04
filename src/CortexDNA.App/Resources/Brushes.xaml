@@ -1,0 +1,23 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:ui="clr-namespace:CortexDNA.UI">
+  <SolidColorBrush x:Key="AppBackgroundBrush" Color="{DynamicResource AppBackgroundColor}" />
+  <SolidColorBrush x:Key="CardBackgroundBrush" Color="{DynamicResource CardBackgroundColor}" />
+  <SolidColorBrush x:Key="CardBorderBrush" Color="{DynamicResource CardBorderColor}" />
+  <SolidColorBrush x:Key="SurfaceBrush" Color="{DynamicResource SurfaceColor}" />
+  <SolidColorBrush x:Key="PrimaryTextBrush" Color="{DynamicResource PrimaryTextColor}" />
+  <SolidColorBrush x:Key="SecondaryTextBrush" Color="{DynamicResource SecondaryTextColor}" />
+  <SolidColorBrush x:Key="MutedTextBrush" Color="{DynamicResource MutedTextColor}" />
+  <SolidColorBrush x:Key="AccentBrush" Color="{DynamicResource AccentColor}" />
+  <SolidColorBrush x:Key="AccentSoftBrush" Color="{DynamicResource AccentSoftColor}" />
+  <SolidColorBrush x:Key="SuccessBrush" Color="{DynamicResource SuccessColor}" />
+  <SolidColorBrush x:Key="WarningBrush" Color="{DynamicResource WarningColor}" />
+  <SolidColorBrush x:Key="ErrorBrush" Color="{DynamicResource ErrorColor}" />
+  <SolidColorBrush x:Key="HoverBackgroundBrush" Color="{DynamicResource HoverBackgroundColor}" />
+  <SolidColorBrush x:Key="PressedBackgroundBrush" Color="{DynamicResource PressedBackgroundColor}" />
+  <SolidColorBrush x:Key="BadgeBackgroundBrush" Color="{DynamicResource BadgeBackgroundColor}" />
+  <SolidColorBrush x:Key="AccentBrush2" Color="{DynamicResource AccentColor2}" />
+  <LinearGradientBrush x:Key="ButtonGradientBrush" StartPoint="0,0" EndPoint="1,1">
+    <GradientStop Color="{DynamicResource AccentColor}" Offset="0" />
+    <GradientStop Color="{DynamicResource AccentColor2}" Offset="1" />
+  </LinearGradientBrush>
+  <SolidColorBrush x:Key="OnAccentBrush" Color="{DynamicResource OnAccentColor}" />
+</ResourceDictionary>

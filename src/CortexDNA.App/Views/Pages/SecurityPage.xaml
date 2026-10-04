@@ -1,0 +1,9 @@
+<UserControl x:Class="CortexDNA.Views.Pages.SecurityPage" xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:controls="clr-namespace:CortexDNA.Controls" Focusable="False">
+  <Border Style="{StaticResource CardStyle}">
+    <StackPanel>
+      <TextBlock Text="Security checks are not available yet" Style="{StaticResource TitleText}" Margin="0,0,0,12" />
+      <TextBlock Text="CortexDNA does not replace your antivirus. Defender, Firewall and other Windows protections remain managed by Windows." />
+      <TextBlock Text="No security feature is changed by opening this page." Margin="0,16,0,0" Foreground="{DynamicResource MutedTextBrush}" />
+    </StackPanel>
+  </Border>
+</UserControl>

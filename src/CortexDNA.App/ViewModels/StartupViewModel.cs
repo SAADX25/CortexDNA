@@ -77,12 +77,11 @@ namespace CortexDNA.ViewModels
             _ => "Not measured"
         };
 
-        public string ImpactColor => Model.Impact switch
+        public CortexDNA.UI.UiState ImpactState => Model.Impact switch
         {
-            StartupImpactLevel.High => "#F43F5E",
-            StartupImpactLevel.Medium => "#F59E0B",
-            StartupImpactLevel.Low => "#22C55E",
-            _ => "#6B7280"
+            StartupImpactLevel.High or StartupImpactLevel.Medium => CortexDNA.UI.UiState.Warning,
+            StartupImpactLevel.Low => CortexDNA.UI.UiState.Success,
+            _ => CortexDNA.UI.UiState.Idle
         };
 
         public string DurationText => Model.DurationMs is double ms

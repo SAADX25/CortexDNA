@@ -1,0 +1,27 @@
+<UserControl x:Class="CortexDNA.Views.Pages.HealthPage" xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:controls="clr-namespace:CortexDNA.Controls" Focusable="False">
+  <StackPanel>
+    <Border Style="{StaticResource CardStyle}">
+      <StackPanel>
+        <TextBlock Text="Live information, without a score" Style="{StaticResource TitleText}" Margin="0,0,0,12" />
+        <TextBlock Text="A full health scan is not available yet. Current readings are available below and in Hardware." Margin="0,0,0,20" />
+        <Button Content="View hardware" Command="{Binding Shell.NavigateCommand}" CommandParameter="Hardware" Margin="0,0,12,0" />
+      </StackPanel>
+    </Border>
+    <UniformGrid Columns="2" Margin="0,16,0,0">
+      <Border Style="{StaticResource CardStyle}" Margin="0,0,16,0">
+        <StackPanel>
+          <TextBlock Text="Memory usage" Style="{StaticResource TitleText}" Margin="0,0,0,12" />
+          <TextBlock Text="{Binding Hardware.SystemInfo.RamUsageText}" Style="{StaticResource ValueText}" />
+          <ProgressBar Value="{Binding Hardware.SystemInfo.RamUsagePercent}" Margin="0,16,0,0" />
+        </StackPanel>
+      </Border>
+      <Border Style="{StaticResource CardStyle}">
+        <StackPanel>
+          <TextBlock Text="Available drive information" Style="{StaticResource TitleText}" Margin="0,0,0,12" />
+          <TextBlock Text="Review drive capacity and available space without scanning personal files." Margin="0,0,0,20" />
+          <Button Content="View storage" Command="{Binding Shell.NavigateCommand}" CommandParameter="Storage" Margin="0,0,12,0" />
+        </StackPanel>
+      </Border>
+    </UniformGrid>
+  </StackPanel>
+</UserControl>

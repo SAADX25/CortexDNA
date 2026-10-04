@@ -1,0 +1,26 @@
+<UserControl x:Class="CortexDNA.Views.Pages.ToolsPage" xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:controls="clr-namespace:CortexDNA.Controls" Focusable="False">
+  <StackPanel>
+    <TextBox x:Name="ToolSearchBox" Text="{Binding Query, UpdateSourceTrigger=PropertyChanged}" ToolTip="Search Windows tools (Ctrl+F)" AutomationProperties.Name="Search Windows tools" Margin="0,0,0,20" />
+    <ItemsControl ItemsSource="{Binding Tools}">
+      <ItemsControl.ItemTemplate>
+        <DataTemplate>
+          <Border Style="{StaticResource CardStyle}" Padding="20" Margin="0,0,0,12">
+            <Grid>
+              <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+              </Grid.ColumnDefinitions>
+              <StackPanel>
+                <TextBlock Text="{Binding Name}" Style="{StaticResource TitleText}" />
+                <TextBlock Text="{Binding Description}" Margin="0,6,0,0" />
+                <TextBlock Text="Administrator approval required" Foreground="{DynamicResource WarningBrush}" FontSize="11" Margin="0,8,0,0" Visibility="{Binding RequiresElevation, Converter={StaticResource BoolToVis}}" />
+              </StackPanel>
+              <Button Grid.Column="1" Content="Open" Command="{Binding DataContext.Shell.ToolLauncher.LaunchCommand, RelativeSource={RelativeSource AncestorType=UserControl}}" CommandParameter="{Binding}" VerticalAlignment="Center" Margin="24,0,0,0" AutomationProperties.Name="{Binding Name, StringFormat='Open {0}'}" />
+            </Grid>
+          </Border>
+        </DataTemplate>
+      </ItemsControl.ItemTemplate>
+    </ItemsControl>
+    <TextBlock Text="No matching Windows tools" Visibility="{Binding HasTools, Converter={StaticResource InvertBoolToVis}}" />
+  </StackPanel>
+</UserControl>

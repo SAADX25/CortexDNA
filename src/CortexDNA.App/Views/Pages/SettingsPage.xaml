@@ -1,0 +1,34 @@
+<UserControl x:Class="CortexDNA.Views.Pages.SettingsPage" xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:controls="clr-namespace:CortexDNA.Controls" Focusable="False">
+  <StackPanel>
+    <Border Style="{StaticResource CardStyle}">
+      <StackPanel>
+        <TextBlock Text="Appearance" Style="{StaticResource TitleText}" Margin="0,0,0,12" />
+        <TextBlock Text="Theme" Margin="0,0,0,12" />
+        <StackPanel Orientation="Horizontal">
+          <Button Content="Dark" Command="{Binding Shell.SelectThemeCommand}" CommandParameter="DarkTheme.xaml" Width="100" Margin="0,0,12,0" />
+          <Button Content="Light" Command="{Binding Shell.SelectThemeCommand}" CommandParameter="LightTheme.xaml" Width="100" />
+        </StackPanel>
+        <TextBlock Text="Window background opacity" Margin="0,24,0,12" />
+        <Slider Minimum="45" Maximum="100" Value="{Binding Shell.Appearance.OpacityPercent, UpdateSourceTrigger=PropertyChanged}" Foreground="{DynamicResource AccentBrush}" MaxWidth="480" HorizontalAlignment="Left" Width="480" AutomationProperties.Name="Window background opacity" />
+        <TextBlock Text="{Binding Shell.Appearance.OpacityLabel}" Margin="0,8,0,0" />
+      </StackPanel>
+    </Border>
+    <Border Style="{StaticResource CardStyle}" Margin="0,16,0,0">
+      <StackPanel>
+        <TextBlock Text="Motion" Style="{StaticResource TitleText}" Margin="0,0,0,16" />
+        <CheckBox Content="Reduce motion" IsChecked="{Binding Shell.Appearance.ReducedMotion}" AutomationProperties.Name="Reduce page, hover and selection animations" />
+        <TextBlock Text="Page, hover and selection animations also follow Windows animation and high-contrast preferences." Margin="0,12,0,0" />
+      </StackPanel>
+    </Border>
+    <Border Style="{StaticResource CardStyle}" Margin="0,16,0,0">
+      <StackPanel>
+        <TextBlock Text="Application" Style="{StaticResource TitleText}" Margin="0,0,0,12" />
+        <TextBlock Text="Closing the window minimizes to the tray. Use Exit in the tray menu to close CortexDNA and release monitoring resources." Margin="0,0,0,20" />
+        <WrapPanel>
+          <Button Content="Manage / uninstall in Windows" Command="{Binding Shell.OpenUninstallCommand}" Margin="0,0,12,0" />
+          <Button Content="Release information" Command="{Binding Shell.OpenUpdatesCommand}" />
+        </WrapPanel>
+      </StackPanel>
+    </Border>
+  </StackPanel>
+</UserControl>

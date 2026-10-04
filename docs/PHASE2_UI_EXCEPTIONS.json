@@ -1,0 +1,14 @@
+[
+  "src/CortexDNA.App/AboutWindow.xaml",
+  "src/CortexDNA.App/App.xaml",
+  "src/CortexDNA.App/CleanConfirmationWindow.xaml",
+  "src/CortexDNA.App/CleanupResultsWindow.xaml",
+  "src/CortexDNA.App/Controls/HardwareDashboardControl.xaml",
+  "src/CortexDNA.App/Controls/HardwareDashboardControl.xaml.cs",
+  "src/CortexDNA.App/Controls/StartupImpactControl.xaml",
+  "src/CortexDNA.App/MainWindow.xaml",
+  "src/CortexDNA.App/MainWindow.xaml.cs",
+  "src/CortexDNA.Core/Models/HardwareModels.cs",
+  "src/CortexDNA.App/Themes/DarkTheme.xaml",
+  "src/CortexDNA.App/Themes/LightTheme.xaml"
+]

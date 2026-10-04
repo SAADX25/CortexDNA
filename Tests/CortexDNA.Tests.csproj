@@ -9,6 +9,7 @@
   </PropertyGroup>
   <ItemGroup>
     <Compile Remove="Standard\**\*.cs" />
+    <Compile Remove="UiSmoke\**\*.cs" />
     <ProjectReference Include="..\src\CortexDNA.App\CortexDNA.App.csproj" />
   </ItemGroup>
 </Project>
