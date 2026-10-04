@@ -8,42 +8,27 @@ using System.Threading.Tasks;
 using System.Threading;
 using System.Windows;
 using System.Windows.Threading;
-using System.Management;
-using System.Security.Principal;
-using System.Diagnostics;
-using System.Net.NetworkInformation;
 using CortexDNA.Models;
-using LibreHardwareMonitor.Hardware;
 using System.Windows.Input;
-using System.Text.Json;
 using CortexDNA.Core;
-using CortexDNA.Hardware;
 using CortexDNA.Services;
 using CortexDNA.UI;
-using Microsoft.Win32;
-using System.Runtime.InteropServices;
 
 namespace CortexDNA.ViewModels
 {
     public class HardwareViewModel : ViewModelBase, IDisposable
     {
-        private readonly IHardwareSession _computer;
-        private DispatcherTimer _timer;
+        private readonly IHardwareMonitorService _monitor;
         private volatile bool _disposed;
         private readonly CancellationTokenSource _lifetime = new();
-        private readonly object _hardwareLock = new();
+        private readonly object _shutdownLock = new();
+        private readonly Dispatcher _dispatcher;
         private Task _initialization = Task.CompletedTask;
-        private Task _refreshTask = Task.CompletedTask;
         private Task _boostTask = Task.CompletedTask;
         private Task _cleanupTask = Task.CompletedTask;
         private Task? _shutdownTask;
-        private long _networkSampleTimestamp;
-        private PerformanceCounter? _cpuPerfCounter;
-        private double _baseClockGHz; // Unknown until measured; never assume a CPU model.
-        private long _prevBytesReceived = 0;
-        private long _prevBytesSent = 0;
-        private double _totalRamBytes = 0;
-        private bool _isPaused = false; // For Tray/Minimize Logic
+        public HardwareSnapshot? CurrentSnapshot { get; private set; }
+        public System.Collections.Immutable.ImmutableArray<HardwareHistorySample> History => _monitor.History;
 
         public ICommand CopyAllSpecsCommand { get; }
         public ICommand CopyMotherboardCommand { get; }
@@ -147,68 +132,31 @@ namespace CortexDNA.ViewModels
 
         public string PrivilegeText => IsAdmin ? "Administrator" : "Standard user";
         private bool _isGameModeActive = false;
-        private volatile bool _hardwareReady;
-        private int _gameCheckCounter = 0;
-        private readonly HashSet<string> _gameProcessSet;
         private readonly ICleanupService _diskCleanup;
         private readonly IMemoryOptimizer _memoryOptimizer;
 
-        private readonly string _specsCachePath;
-
-        // List of processes that trigger Game Mode
-        private readonly string[] _gameProcesses = new[]
-        {
-            "cs2",
-            "valorant-win64-shipping",
-            "vgc",
-            "r5apex",
-            "fortnite-win64-shipping",
-            "cod",
-            "gta5",
-            "overwatch"
-        };
-
-        public HardwareViewModel() : this(AppComposition.CreateCleanupService(),
-            AppComposition.CreateMemoryOptimizer(), AppComposition.CreateHardwareSession())
-        { }
-
-        public HardwareViewModel(ICleanupService cleanup, IMemoryOptimizer memoryOptimizer, IHardwareSession hardware)
-            : this(cleanup, memoryOptimizer, hardware, AppComposition.CreateDialogService()) { }
-
-        public HardwareViewModel(ICleanupService cleanup, IMemoryOptimizer memoryOptimizer, IHardwareSession hardware, IDialogService dialogs)
+        public HardwareViewModel() : this(AppComposition.CreateCleanupService(), AppComposition.CreateMemoryOptimizer(), AppComposition.CreateHardwareMonitor()) { }
+        public HardwareViewModel(ICleanupService cleanup, IMemoryOptimizer memoryOptimizer, IHardwareMonitorService monitor)
+            : this(cleanup, memoryOptimizer, monitor, AppComposition.CreateDialogService()) { }
+        public HardwareViewModel(ICleanupService cleanup, IMemoryOptimizer memoryOptimizer, IHardwareMonitorService monitor, IDialogService dialogs)
         {
             _dialogs = dialogs ?? throw new ArgumentNullException(nameof(dialogs));
             _diskCleanup = cleanup ?? throw new ArgumentNullException(nameof(cleanup));
             _memoryOptimizer = memoryOptimizer ?? throw new ArgumentNullException(nameof(memoryOptimizer));
-            _computer = hardware ?? throw new ArgumentNullException(nameof(hardware));
-            _specsCachePath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "CortexDNA", "specs.json");
-            _gameProcessSet = new HashSet<string>(_gameProcesses, StringComparer.OrdinalIgnoreCase);
-
+            _monitor = monitor ?? throw new ArgumentNullException(nameof(monitor));
+            _dispatcher = System.Windows.Application.Current?.Dispatcher ?? Dispatcher.CurrentDispatcher;
             CopyAllSpecsCommand = new RelayCommand(CopyAllSpecs);
             CopyMotherboardCommand = new RelayCommand(() => CopyToClipboard(SystemInfo.MotherboardModel, "Motherboard Model"));
             CopyBiosVersionCommand = new RelayCommand(() => CopyToClipboard(SystemInfo.BiosVersion, "BIOS Version"));
             CopyBiosDateCommand = new RelayCommand(() => CopyToClipboard(SystemInfo.BiosDate, "BIOS Date"));
-            BoostSystemCommand = new RelayCommand(BoostSystem);
-            CleanDiskCommand = new RelayCommand(ExecuteCleanDisk);
-            RefreshCommand = new RelayCommand(RequestRefresh);
-            IsAdmin = IsRunningAsAdmin();
-
-            // 1. Immediate Cache Load (Fast) - Step 1
-            LoadCachedSpecs();
-
-            // Only enable hardware types the UI actually displays (CPU/GPU).
-            // RAM uses GlobalMemoryStatusEx; storage uses DriveInfo; motherboard uses WMI.
-            // The injected session preserves the same enabled hardware types.
-
-            // 2. Background Refresh (Slow, but ensures data is fresh) - Step 2 & 3
-
-
-            // Timer starts only after LibreHardwareMonitor is open (_hardwareReady)
-            _timer = new DispatcherTimer(DispatcherPriority.Background);
-            _timer.Interval = TimeSpan.FromSeconds(1);
-            _timer.Tick += (s, e) => RefreshData();
-            _initialization = Task.Run(InitializeAndRefresh);
+            BoostSystemCommand = new RelayCommand(BoostSystem); CleanDiskCommand = new RelayCommand(ExecuteCleanDisk); RefreshCommand = new RelayCommand(RequestRefresh);
+            ApplySnapshot(_monitor.CurrentSnapshot);
+            StatusMessage = "Initializing...";
+            _monitor.SnapshotAvailable += SnapshotReceived;
+            _initialization = ObserveInitializationAsync();
         }
+        private async Task ObserveInitializationAsync()
+        { try { await _monitor.StartAsync(); } catch (OperationCanceledException) { } catch (Exception ex) { Logger.Log(ex); if (!_disposed) StatusMessage = "Hardware monitoring unavailable; see local log."; } }
 
         private void CopyToClipboard(string text, string label)
         {
@@ -250,776 +198,64 @@ namespace CortexDNA.ViewModels
             try { await Task.Delay(2000, _lifetime.Token); if (!_disposed) StatusMessage = "Monitoring Active"; } catch (OperationCanceledException) { }
         }
 
-        public void PauseMonitoring()
+        public void PauseMonitoring() { if (!_disposed) _monitor.SetMode(MonitoringMode.Hidden); }
+        public void ResumeMonitoring() { if (!_disposed) _monitor.SetMode(MonitoringMode.Foreground); }
+        public void SetMonitoringMode(MonitoringMode mode) { if (!_disposed) _monitor.SetMode(mode); }
+        public void RequestRefresh() { if (!_disposed) _ = RefreshAsync(); }
+        private void RefreshData() => RequestRefresh();
+        private async Task RefreshAsync()
+        { try { await _monitor.RefreshAsync(_lifetime.Token); } catch (OperationCanceledException) { } catch (Exception ex) { Logger.Log(ex); } }
+        private void SnapshotReceived(HardwareSnapshot snapshot)
         {
-            if (_disposed || _isPaused) return;
-            _isPaused = true;
-            _networkSampleTimestamp = 0;
-            _timer?.Stop();
-            // Optional: Close hardware handles if needed, but keeping them open is faster for resume
-            Logger.Log("Monitoring Paused (Tray/Minimized)");
+            if (_disposed || _dispatcher.HasShutdownStarted) return;
+            if (_dispatcher.CheckAccess()) ApplySnapshot(snapshot);
+            else _dispatcher.BeginInvoke(() => { if (!_disposed) ApplySnapshot(snapshot); });
         }
-
-        public void ResumeMonitoring()
+        private readonly Dictionary<string, HardwareItem> _cpuItems = new();
+        private readonly Dictionary<string, HardwareItem> _gpuItems = new();
+        private void ApplySnapshot(HardwareSnapshot snapshot)
         {
-            if (_disposed || !_isPaused) return;
-            _isPaused = false;
-            if (_hardwareReady) _timer?.Start();
-            Logger.Log("Monitoring Resumed");
-
-            // Force immediate update
-            RefreshData();
+            if (_disposed) return;
+            CurrentSnapshot = snapshot; OnPropertyChanged(nameof(CurrentSnapshot)); OnPropertyChanged(nameof(History));
+            var info = snapshot.Info;
+            IsAdmin = info.IsAdmin;
+            SystemInfo.OsName = info.OsName ?? "Unavailable"; SystemInfo.BiosInfo = info.BiosInfo ?? "Unavailable";
+            SystemInfo.MotherboardModel = info.MotherboardModel ?? "Unavailable"; SystemInfo.BiosVersion = info.BiosVersion ?? "Unavailable"; SystemInfo.BiosDate = info.BiosDate ?? "Unavailable";
+            SystemInfo.RamInfo = info.RamInfo ?? "Unavailable"; SystemInfo.RamTotal = info.RamTotal ?? "Unavailable"; SystemInfo.RamType = info.RamType ?? "Unavailable";
+            CpuName = info.CpuName ?? snapshot.Cpus.FirstOrDefault()?.Name ?? "Unavailable";
+            GpuName = snapshot.Gpus.IsEmpty ? info.GpuName ?? "Unavailable" : string.Join(" / ", snapshot.Gpus.Select(g => g.Name));
+            SystemInfo.Uptime = $"{snapshot.Uptime.Days}d {snapshot.Uptime.Hours}h {snapshot.Uptime.Minutes}m";
+            var memory = snapshot.Memory;
+            SystemInfo.RamUsagePercent = memory.UsagePercent ?? 0;
+            SystemInfo.RamUsageText = memory.UsagePercent.HasValue && memory.TotalBytes.HasValue && memory.AvailableBytes.HasValue ? $"{(memory.TotalBytes.Value - Math.Min(memory.TotalBytes.Value, memory.AvailableBytes.Value)) / (1024d * 1024 * 1024):F1} / {memory.TotalBytes.Value / (1024d * 1024 * 1024):F1} GB ({memory.UsagePercent:F0}%)" : "Unavailable";
+            SystemInfo.NetworkDownload = FormatSpeed(snapshot.Network.DownloadBytesPerSecond); SystemInfo.NetworkUpload = FormatSpeed(snapshot.Network.UploadBytesPerSecond);
+            var cpus = snapshot.Cpus.Select(c => Item(_cpuItems, c.Id, c.Name, "CPU", ("CPU Total", "Load", c.UsagePercent, "F1", " %"), ("CPU Speed", "Clock", c.ClockGhz, "F2", " GHz"), ("CPU Temperature", "Temperature", c.TemperatureC, "F0", " °C"))).ToArray();
+            var gpus = snapshot.Gpus.Select(g => Item(_gpuItems, g.Id, g.Name, "GPU", new[] { ("GPU Core", "Load", g.UsagePercent, "F1", " %") }.Concat(g.Temperatures.IsEmpty ? new[] { ("GPU Core", "Temperature", g.TemperatureC, "F0", " °C") } : g.Temperatures.Select(t => (t.Name, "Temperature", t.Celsius, "F0", " °C"))).ToArray())).ToArray();
+            Reconcile(CpuList, cpus); Reconcile(GpuList, gpus);
+            foreach (var key in _cpuItems.Keys.Except(snapshot.Cpus.Select(c => c.Id)).ToArray()) _cpuItems.Remove(key);
+            foreach (var key in _gpuItems.Keys.Except(snapshot.Gpus.Select(g => g.Id)).ToArray()) _gpuItems.Remove(key);
+            var drives = snapshot.Storage.Select(d =>
+            {
+                var item = StorageList.FirstOrDefault(x => x.Name == d.Id) ?? new StorageDrive { Name = d.Id };
+                item.Label = d.Label; item.TotalSize = d.TotalBytes.HasValue ? $"{d.TotalBytes / (1024d * 1024 * 1024):F0} GB" : "Unavailable";
+                item.FreeSpace = d.AvailableBytes.HasValue ? $"{d.AvailableBytes / (1024d * 1024 * 1024):F0} GB free" : "Unavailable";
+                item.UsagePercentage = d.UsagePercent ?? 0; item.UsageText = d.UsagePercent.HasValue ? $"{d.UsagePercent:F1}%" : "Unavailable"; return item;
+            }).ToArray(); Reconcile(StorageList, drives);
+            if (_isGameModeActive != snapshot.IsGameDetected) { _isGameModeActive = snapshot.IsGameDetected; OnPropertyChanged(nameof(IsGameModeActive)); }
+            if (!IsBoosting && !IsCleaningDisk) StatusMessage = snapshot.IsGameDetected ? "Gaming Mode Active - Sensors Throttled" : "Monitoring Active";
         }
-
-        public void RequestRefresh()
+        private static string FormatSpeed(double? rate) => rate.HasValue ? rate > 1024 * 1024 ? $"{rate / (1024 * 1024):F1} MB/s" : $"{rate / 1024:F1} KB/s" : "Unavailable";
+        private static HardwareItem Item(Dictionary<string, HardwareItem> cache, string id, string name, string type, params (string Name, string Type, double? Value, string Format, string Unit)[] sensors)
         {
-            RefreshData();
+            if (!cache.TryGetValue(id, out var item)) { item = new HardwareItem { Name = name, Type = type }; cache.Add(id, item); }
+            item.Name = name; item.Type = type;
+            foreach (var sensor in sensors) { var existing = item.Sensors.FirstOrDefault(s => s.Name == sensor.Name && s.Type == sensor.Type); if (existing == null) { existing = new SensorInfo { Name = sensor.Name, Type = sensor.Type }; item.Sensors.Add(existing); } existing.Value = sensor.Value.HasValue ? sensor.Value.Value.ToString(sensor.Format) + sensor.Unit : "Unavailable"; }
+            for (int i = item.Sensors.Count - 1; i >= 0; i--) if (!sensors.Any(s => s.Name == item.Sensors[i].Name && s.Type == item.Sensors[i].Type)) item.Sensors.RemoveAt(i);
+            return item;
         }
+        private static void Reconcile<T>(ObservableCollection<T> target, IReadOnlyList<T> source)
+        { for (int i = target.Count - 1; i >= 0; i--) if (!source.Contains(target[i])) target.RemoveAt(i); for (int i = 0; i < source.Count; i++) { int current = target.IndexOf(source[i]); if (current < 0) target.Insert(i, source[i]); else if (current != i) target.Move(current, i); } }
 
-
-
-        private void InvokeUi(Action action)
-        {
-            var dispatcher = System.Windows.Application.Current?.Dispatcher;
-            if (_disposed || dispatcher == null || dispatcher.HasShutdownStarted) return;
-            dispatcher.Invoke(() => { if (!_disposed) action(); });
-        }
-
-        private async Task InitializeAndRefresh()
-        {
-            try
-            {
-                await Task.Delay(1500, _lifetime.Token).ConfigureAwait(false);
-                lock (_hardwareLock)
-                {
-                    _lifetime.Token.ThrowIfCancellationRequested();
-                    _computer.Open();
-                    InitializeCounters();
-                }
-                _lifetime.Token.ThrowIfCancellationRequested();
-                RefreshSystemInfo();
-                InvokeUi(() =>
-                {
-                    _hardwareReady = true;
-                    StatusMessage = "Monitoring Active";
-                    if (!_isPaused) _timer.Start();
-                    RefreshData();
-                });
-            }
-            catch (OperationCanceledException) { }
-            catch (Exception ex) { Logger.Log(ex); InvokeUi(() => StatusMessage = "Hardware monitoring unavailable; see local log."); }
-        }
-        private void InitializeCounters()
-        {
-            // WMI: Base clock speed
-            try
-            {
-                using (var searcher = new ManagementObjectSearcher("SELECT MaxClockSpeed FROM Win32_Processor"))
-                {
-                    foreach (var obj in searcher.Get())
-                    {
-                        if (obj["MaxClockSpeed"] != null)
-                        {
-                            _baseClockGHz = Convert.ToDouble(obj["MaxClockSpeed"]) / 1000.0;
-                            break;
-                        }
-                    }
-                }
-            }
-            catch
-            {
-                // Fallback: keep the default _baseClockGHz value
-            }
-
-            // Performance Counter — separate try so a WMI failure above doesn't prevent this
-            try
-            {
-                _cpuPerfCounter = new PerformanceCounter("Processor Information", "% Processor Performance", "_Total");
-                _cpuPerfCounter.NextValue(); // First call always returns 0, discard it
-            }
-            catch
-            {
-                // PerformanceCounter unavailable on some stripped/locked-down OS installs.
-                // _cpuPerfCounter stays null; callers already guard against null.
-                _cpuPerfCounter = null;
-            }
-        }
-
-        private void UpdateUptime()
-        {
-            TimeSpan uptime = TimeSpan.FromMilliseconds(Environment.TickCount64);
-            SystemInfo.Uptime = $"{uptime.Days}d {uptime.Hours}h {uptime.Minutes}m";
-        }
-
-        private string FormatSpeed(long bytesPerSec)
-        {
-            if (bytesPerSec > 1024 * 1024)
-                return $"{bytesPerSec / (1024.0 * 1024):F1} MB/s";
-            else
-                return $"{bytesPerSec / 1024.0:F1} KB/s";
-        }
-
-        private void UpdateOrAddSensor(HardwareItem item, string name, string type, string value)
-        {
-            var existing = item.Sensors.FirstOrDefault(s => s.Name == name && s.Type == type);
-            if (existing == null)
-            {
-                item.Sensors.Add(new SensorInfo { Name = name, Type = type, Value = value });
-            }
-            else
-            {
-                existing.Value = value;
-            }
-        }
-
-        private bool IsRunningAsAdmin()
-        {
-            using (var identity = WindowsIdentity.GetCurrent())
-            {
-                var principal = new WindowsPrincipal(identity);
-                return principal.IsInRole(WindowsBuiltInRole.Administrator);
-            }
-        }
-
-        private void LoadCachedSpecs()
-        {
-            try
-            {
-                if (File.Exists(_specsCachePath))
-                {
-                    string json = File.ReadAllText(_specsCachePath);
-                    var specs = JsonSerializer.Deserialize<SystemSpecs>(json);
-
-                    // 2. Add a Null Check
-                    if (specs != null)
-                    {
-                        SystemInfo.OsName = specs.OsName ?? "Detecting...";
-                        SystemInfo.BiosInfo = specs.BiosInfo ?? "Detecting...";
-                        SystemInfo.MotherboardModel = specs.MotherboardModel ?? "Detecting...";
-                        SystemInfo.BiosVersion = specs.BiosVersion ?? "Detecting...";
-                        SystemInfo.BiosDate = specs.BiosDate ?? "Detecting...";
-
-                        CpuName = specs.CpuName ?? "Detecting...";
-                        GpuName = specs.GpuName ?? "Detecting...";
-                        SystemInfo.RamInfo = specs.RamInfo ?? "Detecting...";
-                        SystemInfo.RamTotal = specs.RamTotal ?? "Detecting...";
-                        SystemInfo.RamType = specs.RamType ?? "Detecting...";
-                        _totalRamBytes = specs.TotalRamBytes;
-                    }
-                }
-            }
-            catch
-            {
-                // 1. Wrap the Cache Loading in Try-Catch
-                // If it fails or the file is corrupted, just ignore it and proceed.
-            }
-        }
-
-        private void RefreshSystemInfo()
-        {
-            // ── Each WMI block is individually guarded so a single failure
-            //    (e.g. a corrupted WMI class) cannot prevent other queries from running.
-            // ── All UI-bound property writes are dispatched to the UI thread because
-            //    this method is called from a background Task.
-
-
-
-            // ── 1. OS Info ────────────────────────────────────────────────────────────
-            try
-            {
-                using (var searcher = new ManagementObjectSearcher("SELECT Caption, BuildNumber FROM Win32_OperatingSystem"))
-                {
-                    foreach (var obj in searcher.Get())
-                    {
-                        string osName = $"{obj["Caption"]} (Build {obj["BuildNumber"]})";
-                        InvokeUi(() => SystemInfo.OsName = osName);
-                    }
-                }
-            }
-            catch
-            {
-                InvokeUi(() => SystemInfo.OsName = "N/A");
-            }
-
-            // ── 2. BIOS Info ──────────────────────────────────────────────────────────
-            string manufacturer = "N/A";
-            string version = "N/A";
-            string date = "N/A";
-
-            try
-            {
-                using (var searcher = new ManagementObjectSearcher("SELECT Manufacturer, SMBIOSBIOSVersion, ReleaseDate FROM Win32_BIOS"))
-                {
-                    foreach (var obj in searcher.Get())
-                    {
-                        manufacturer = obj["Manufacturer"]?.ToString() ?? "N/A";
-                        version = obj["SMBIOSBIOSVersion"]?.ToString() ?? "N/A";
-
-                        string rawDate = obj["ReleaseDate"]?.ToString() ?? "";
-                        if (rawDate.Length >= 8)
-                            date = $"{rawDate.Substring(0, 4)}-{rawDate.Substring(4, 2)}-{rawDate.Substring(6, 2)}";
-                    }
-                }
-            }
-            catch { /* BIOS query failed — safe fallbacks already set */ }
-
-            // ── 3. Motherboard Info ───────────────────────────────────────────────────
-            string boardProduct = "N/A";
-            string boardManuf = "N/A";
-
-            try
-            {
-                using (var searcher = new ManagementObjectSearcher("SELECT Product, Manufacturer FROM Win32_BaseBoard"))
-                {
-                    foreach (var obj in searcher.Get())
-                    {
-                        boardProduct = obj["Product"]?.ToString() ?? "";
-                        boardManuf = obj["Manufacturer"]?.ToString() ?? "";
-                    }
-                }
-            }
-            catch { /* Motherboard query failed */ }
-
-            string moboModel = !string.IsNullOrEmpty(boardProduct)
-                ? $"{boardManuf} {boardProduct}"
-                : $"{boardManuf} (Unknown Model)";
-
-            InvokeUi(() =>
-            {
-                SystemInfo.MotherboardModel = moboModel;
-                SystemInfo.BiosVersion = version;
-                SystemInfo.BiosDate = date;
-                SystemInfo.BiosInfo = $"{manufacturer} (v{version})";
-            });
-
-            // ── 4. CPU Name ───────────────────────────────────────────────────────────
-            try
-            {
-                using (var searcher = new ManagementObjectSearcher("SELECT Name FROM Win32_Processor"))
-                {
-                    foreach (var obj in searcher.Get())
-                    {
-                        if (obj["Name"] != null)
-                        {
-                            string cpuName = obj["Name"].ToString()?.Trim() ?? "Unknown CPU";
-                            InvokeUi(() => CpuName = cpuName);
-                            break;
-                        }
-                    }
-                }
-            }
-            catch
-            {
-                InvokeUi(() => CpuName = "N/A");
-            }
-
-            // ── 5. GPU Info (Robust Multi-GPU) ────────────────────────────────────────
-            try
-            {
-                var gpus = new System.Collections.Generic.List<(string Name, long VRam)>();
-
-                using (var searcher = new ManagementObjectSearcher("SELECT Name, AdapterRAM FROM Win32_VideoController"))
-                {
-                    foreach (var obj in searcher.Get())
-                    {
-                        string name = obj["Name"]?.ToString() ?? "Unknown GPU";
-                        long vram = 0;
-                        if (obj["AdapterRAM"] != null)
-                            long.TryParse(obj["AdapterRAM"].ToString(), out vram);
-                        gpus.Add((name, vram));
-                    }
-                }
-
-                string gpuName;
-                if (gpus.Count > 0)
-                {
-                    var bestGpu = gpus
-                        .OrderByDescending(g => g.VRam)
-                        .ThenByDescending(g => g.Name.Contains("NVIDIA") || g.Name.Contains("AMD") || g.Name.Contains("Radeon"))
-                        .ThenByDescending(g => g.Name.Length)
-                        .First();
-                    gpuName = bestGpu.Name;
-                }
-                else
-                {
-                    gpuName = "No GPU Detected";
-                }
-
-                InvokeUi(() => GpuName = gpuName);
-            }
-            catch
-            {
-                InvokeUi(() => GpuName = "N/A");
-            }
-
-            // ── 6. RAM Info ───────────────────────────────────────────────────────────
-            long totalCapacity = 0;
-            uint speed = 0;
-
-            try
-            {
-                using (var searcher = new ManagementObjectSearcher("SELECT TotalPhysicalMemory FROM Win32_ComputerSystem"))
-                {
-                    foreach (var obj in searcher.Get())
-                    {
-                        if (obj["TotalPhysicalMemory"] != null)
-                            totalCapacity = Convert.ToInt64(obj["TotalPhysicalMemory"]);
-                    }
-                }
-            }
-            catch { /* Total RAM query failed — totalCapacity stays 0 */ }
-
-            try
-            {
-                using (var searcher = new ManagementObjectSearcher("SELECT Speed FROM Win32_PhysicalMemory"))
-                {
-                    foreach (var obj in searcher.Get())
-                    {
-                        if (obj["Speed"] != null && speed == 0)
-                        {
-                            speed = Convert.ToUInt32(obj["Speed"]);
-                            break;
-                        }
-                    }
-                }
-            }
-            catch { /* RAM speed query failed — speed stays 0 */ }
-
-            _totalRamBytes = totalCapacity;
-            double gb = totalCapacity > 0 ? totalCapacity / (1024.0 * 1024 * 1024) : 0;
-
-            string ramInfo = speed > 0 ? $"{gb:F1} GB @ {speed} MHz" : $"{gb:F1} GB";
-            string ramTotal = $"{gb:F1} GB";
-            string ramType = speed > 0 ? $"{speed} MHz" : "Unknown";
-
-            InvokeUi(() =>
-            {
-                SystemInfo.RamInfo = ramInfo;
-                SystemInfo.RamTotal = ramTotal;
-                SystemInfo.RamType = ramType;
-            });
-
-            // ── 7. Persist cache (best-effort) ─────────────────────────────────────
-            try
-            {
-                // Read current values on the UI thread so we snapshot consistent data
-                SystemSpecs specs = null!;
-                InvokeUi(() =>
-                {
-                    specs = new SystemSpecs
-                    {
-                        OsName = SystemInfo.OsName,
-                        BiosInfo = SystemInfo.BiosInfo,
-                        MotherboardModel = SystemInfo.MotherboardModel,
-                        BiosVersion = SystemInfo.BiosVersion,
-                        BiosDate = SystemInfo.BiosDate,
-                        CpuName = CpuName,
-                        GpuName = GpuName,
-                        RamInfo = SystemInfo.RamInfo,
-                        RamTotal = SystemInfo.RamTotal,
-                        RamType = SystemInfo.RamType,
-                        TotalRamBytes = _totalRamBytes
-                    };
-                });
-
-                if (specs != null)
-                {
-                    string dir = Path.GetDirectoryName(_specsCachePath)!;
-                    if (!Directory.Exists(dir)) Directory.CreateDirectory(dir);
-                    string json = JsonSerializer.Serialize(specs, new JsonSerializerOptions { WriteIndented = true });
-                    File.WriteAllText(_specsCachePath, json);
-                }
-            }
-            catch (Exception ex)
-            {
-                System.Diagnostics.Debug.WriteLine($"Failed to save specs cache: {ex.Message}");
-            }
-        }
-
-        private bool _isUpdating = false;
-
-        private void RefreshData()
-        {
-            if (!_disposed && !_isPaused && !_isUpdating && _hardwareReady)
-                _refreshTask = RefreshDataAsync();
-        }
-        private async Task RefreshDataAsync()
-        {
-            if (_disposed || _isPaused || _isUpdating || !_hardwareReady) return;
-            _isUpdating = true;
-
-            try
-            {
-                // Game check every ~5s (not every tick) — Process.GetProcesses is expensive
-                bool shouldCheckGames = (++_gameCheckCounter % 5 == 0) || _isGameModeActive;
-
-                // 1. Background Work: Fetch all heavy data off the UI thread
-                var data = await Task.Run(() =>
-                {
-                    lock (_hardwareLock)
-                    {
-                        _lifetime.Token.ThrowIfCancellationRequested();
-                        bool? gameFound = null;
-                        if (shouldCheckGames)
-                            gameFound = IsGameProcessRunning();
-
-                        // If Game Mode is active, SKIP LibreHardwareMonitor entirely
-                        if (!_isGameModeActive)
-                        {
-                            // Update only enabled hardware (CPU + GPU) — no double Update
-                            _computer.Refresh();
-                        }
-
-                        // Performance Counters (Lightweight)
-                        float cpuPerf = 0;
-                        if (_cpuPerfCounter != null)
-                        {
-                            try { cpuPerf = _cpuPerfCounter.NextValue(); }
-                            catch { cpuPerf = 0; }
-                        }
-
-                        NativeMethods.MEMORYSTATUSEX memStatus = new NativeMethods.MEMORYSTATUSEX();
-                        memStatus.dwLength = (uint)Marshal.SizeOf(typeof(NativeMethods.MEMORYSTATUSEX));
-                        float ramAvailable = 0;
-                        if (NativeMethods.GlobalMemoryStatusEx(ref memStatus))
-                        {
-                            ramAvailable = memStatus.ullAvailPhys / (1024f * 1024f);
-                            if (_totalRamBytes == 0) _totalRamBytes = memStatus.ullTotalPhys;
-                        }
-
-                        var netStats = GetNetworkStatsSnapshot();
-                        var storageStats = _isGameModeActive ? new System.Collections.Generic.List<StorageDto>() : GetStorageStatsSnapshot();
-
-                        return new { CpuPerf = cpuPerf, RamAvailable = ramAvailable, NetStats = netStats, StorageStats = storageStats, GameFound = gameFound };
-                    }
-                }, _lifetime.Token);
-                if (_disposed || _isPaused) return;
-
-                // Apply game mode on UI thread (timer interval / status / priority)
-                if (data.GameFound.HasValue)
-                    ApplyGameMode(data.GameFound.Value);
-
-                // 2. UI Thread Updates (Fast Property Assignments)
-                if (!_isGameModeActive)
-                {
-                    UpdateHardwareUI(data.CpuPerf);
-                }
-
-                UpdateRamUI(data.RamAvailable);
-                UpdateNetworkUI(data.NetStats);
-
-                if (!_isGameModeActive)
-                {
-                    UpdateStorageUI(data.StorageStats);
-                }
-
-                UpdateUptime();
-            }
-            catch (OperationCanceledException) { }
-            catch (Exception ex)
-            {
-                StatusMessage = $"Error updating: {ex.Message}";
-            }
-            finally
-            {
-                _isUpdating = false;
-            }
-        }
-
-        private bool IsGameProcessRunning()
-        {
-            Process[] processes = Array.Empty<Process>();
-            try
-            {
-                processes = Process.GetProcesses();
-                foreach (var p in processes)
-                {
-                    try
-                    {
-                        if (_gameProcessSet.Contains(p.ProcessName))
-                            return true;
-                    }
-                    finally
-                    {
-                        p.Dispose();
-                    }
-                }
-            }
-            catch { }
-            finally { foreach (var process in processes) process.Dispose(); }
-            return false;
-        }
-
-        private void ApplyGameMode(bool gameFound)
-        {
-            if (gameFound && !_isGameModeActive)
-            {
-                _isGameModeActive = true;
-                OnPropertyChanged(nameof(IsGameModeActive));
-                _timer.Interval = TimeSpan.FromSeconds(10);
-                StatusMessage = "Gaming Mode Active - Sensors Throttled";
-
-                try
-                {
-                    using (Process p = Process.GetCurrentProcess())
-                        p.PriorityClass = ProcessPriorityClass.BelowNormal;
-                }
-                catch { }
-            }
-            else if (!gameFound && _isGameModeActive)
-            {
-                _isGameModeActive = false;
-                OnPropertyChanged(nameof(IsGameModeActive));
-                _timer.Interval = TimeSpan.FromSeconds(1);
-                StatusMessage = "Monitoring Active";
-
-                try
-                {
-                    using (Process p = Process.GetCurrentProcess())
-                        p.PriorityClass = ProcessPriorityClass.Normal;
-                }
-                catch { }
-            }
-        }
-
-        // --- Background Helper Methods ---
-
-        private (string Download, string Upload) GetNetworkStatsSnapshot()
-        {
-            long currentReceived = 0;
-            long currentSent = 0;
-
-            // Universal Hardware-Agnostic Logic
-            // Aggregates ALL active physical/virtual network interfaces (Wi-Fi, Ethernet, 5G/LTE, VPN)
-            // Uses a Denylist approach to ensure we capture any valid internet connection
-            foreach (NetworkInterface ni in NetworkInterface.GetAllNetworkInterfaces())
-            {
-                // Must be Up and not a Loopback (localhost) or Tunnel
-                if (ni.OperationalStatus == OperationalStatus.Up &&
-                    ni.NetworkInterfaceType != NetworkInterfaceType.Loopback &&
-                    ni.NetworkInterfaceType != NetworkInterfaceType.Tunnel)
-                {
-                    var stats = ni.GetIPv4Statistics();
-                    currentReceived += stats.BytesReceived;
-                    currentSent += stats.BytesSent;
-                }
-            }
-
-            long now = Stopwatch.GetTimestamp();
-            double seconds = _networkSampleTimestamp == 0 ? 0 : Stopwatch.GetElapsedTime(_networkSampleTimestamp, now).TotalSeconds;
-            _networkSampleTimestamp = now;
-            string down = "0 KB/s";
-            string up = "0 KB/s";
-
-            // Only calculate speed if we have a previous sample to compare against
-            if (_prevBytesReceived > 0 && seconds > 0)
-            {
-                long downBytes = currentReceived - _prevBytesReceived;
-                long upBytes = currentSent - _prevBytesSent;
-
-                // Handle overflow (long.MaxValue reset) or negative delta
-                if (downBytes < 0) downBytes = 0;
-                if (upBytes < 0) upBytes = 0;
-
-                down = FormatSpeed((long)(downBytes / seconds));
-                up = FormatSpeed((long)(upBytes / seconds));
-            }
-
-            _prevBytesReceived = currentReceived;
-            _prevBytesSent = currentSent;
-
-            return (down, up);
-        }
-
-        private System.Collections.Generic.List<StorageDto> GetStorageStatsSnapshot()
-        {
-            var results = new System.Collections.Generic.List<StorageDto>();
-            try
-            {
-                var drives = DriveInfo.GetDrives().Where(d => d.IsReady).ToList();
-                foreach (var drive in drives)
-                {
-                    double totalSizeGb = drive.TotalSize / (1024.0 * 1024 * 1024);
-                    double freeSpaceGb = drive.AvailableFreeSpace / (1024.0 * 1024 * 1024);
-                    double usedSpaceGb = totalSizeGb - freeSpaceGb;
-                    double usagePercent = (usedSpaceGb / totalSizeGb) * 100;
-
-                    results.Add(new StorageDto
-                    {
-                        Name = drive.Name,
-                        Label = drive.VolumeLabel,
-                        TotalSize = $"{totalSizeGb:F0} GB",
-                        FreeSpace = $"{freeSpaceGb:F0} GB free",
-                        UsagePercentage = usagePercent,
-                        UsageText = $"{usagePercent:F1}%"
-                    });
-                }
-            }
-            catch { } // Drive access can fail
-            return results;
-        }
-
-        // --- UI Helper Methods ---
-
-        private void UpdateHardwareUI(float cpuPerfPercent)
-        {
-            // Update ObservableCollections from the already-updated _computer object
-            var cpus = _computer.Hardware.Where(h => h.HardwareType == HardwareType.Cpu).ToList();
-            UpdateHardwareCollection(cpus, CpuList, "CPU", cpuPerfPercent);
-
-            var gpus = _computer.Hardware.Where(h =>
-                h.HardwareType == HardwareType.GpuNvidia ||
-                h.HardwareType == HardwareType.GpuAmd ||
-                h.HardwareType == HardwareType.GpuIntel).ToList();
-            UpdateHardwareCollection(gpus, GpuList, "GPU", 0);
-        }
-
-        private void UpdateRamUI(float availableMb)
-        {
-            if (_totalRamBytes > 0)
-            {
-                double totalMb = _totalRamBytes / (1024.0 * 1024);
-                double usedMb = totalMb - availableMb;
-                double percent = (usedMb / totalMb) * 100;
-
-                SystemInfo.RamUsagePercent = percent;
-                SystemInfo.RamUsageText = $"{usedMb / 1024.0:F1} / {totalMb / 1024.0:F1} GB ({percent:F0}%)";
-            }
-        }
-
-        private void UpdateNetworkUI((string Download, string Upload) stats)
-        {
-            SystemInfo.NetworkDownload = stats.Download;
-            SystemInfo.NetworkUpload = stats.Upload;
-        }
-
-        private void UpdateStorageUI(System.Collections.Generic.List<StorageDto> snapshot)
-        {
-            foreach (var dto in snapshot)
-            {
-                var existing = StorageList.FirstOrDefault(d => d.Name == dto.Name);
-                if (existing == null)
-                {
-                    StorageList.Add(new StorageDrive
-                    {
-                        Name = dto.Name,
-                        Label = dto.Label,
-                        TotalSize = dto.TotalSize,
-                        FreeSpace = dto.FreeSpace,
-                        UsagePercentage = dto.UsagePercentage,
-                        UsageText = dto.UsageText
-                    });
-                }
-                else
-                {
-                    existing.FreeSpace = dto.FreeSpace;
-                    existing.UsagePercentage = dto.UsagePercentage;
-                    existing.UsageText = dto.UsageText;
-
-                }
-            }
-        }
-
-        // Updated signature to accept cpuPerf
-        private void UpdateHardwareCollection(System.Collections.Generic.List<IHardware> hardwareSource, ObservableCollection<HardwareItem> targetCollection, string typeLabel, float cpuPerf)
-        {
-            foreach (var hw in hardwareSource)
-            {
-                var existingItem = targetCollection.FirstOrDefault(x => x.Name == hw.Name);
-                if (existingItem == null)
-                {
-                    existingItem = new HardwareItem { Name = hw.Name, Type = typeLabel };
-                    targetCollection.Add(existingItem);
-                }
-
-                UpdateSensors(hw, existingItem, cpuPerf);
-            }
-
-            for (int i = targetCollection.Count - 1; i >= 0; i--)
-            {
-                if (!hardwareSource.Any(h => h.Name == targetCollection[i].Name))
-                {
-                    targetCollection.RemoveAt(i);
-                }
-            }
-        }
-
-        // Updated to use passed cpuPerf instead of calling NextValue()
-        private void UpdateSensors(IHardware hw, HardwareItem item, float cpuPerf)
-        {
-            var sensors = hw.Sensors.OrderBy(s => s.Index).ToList();
-
-            if (hw.HardwareType == HardwareType.Cpu)
-            {
-                // 1. CPU Load
-                var loadSensor = sensors.FirstOrDefault(s => s.SensorType == SensorType.Load && s.Name == "CPU Total");
-                if (loadSensor != null && loadSensor.Value.HasValue)
-                {
-                    UpdateOrAddSensor(item, loadSensor.Name, "Load", $"{loadSensor.Value.Value:F1} %");
-                }
-
-                // 2. CPU Speed (Calculated)
-                double currentGHz = _baseClockGHz * (cpuPerf / 100.0);
-                UpdateOrAddSensor(item, "CPU Speed", "Clock", $"{currentGHz:F2} GHz");
-            }
-            else
-            {
-                // GPU Handling
-                foreach (var sensor in sensors)
-                {
-                    if (!sensor.Value.HasValue || float.IsNaN(sensor.Value.Value)) continue;
-
-                    bool isInteresting = false;
-                    if (sensor.SensorType == SensorType.Temperature) isInteresting = true;
-                    if (sensor.SensorType == SensorType.Load && (sensor.Name == "GPU Core")) isInteresting = true;
-
-                    if (isInteresting)
-                    {
-                        string val = "--"; // Default robust fallback
-
-                        if (sensor.Value.HasValue && !float.IsNaN(sensor.Value.Value))
-                        {
-                            val = sensor.SensorType == SensorType.Temperature
-                                ? $"{sensor.Value.Value:F0} °C"
-                                : $"{sensor.Value.Value:F1} %";
-                        }
-
-                        UpdateOrAddSensor(item, sensor.Name, sensor.SensorType.ToString(), val);
-                    }
-                }
-            }
-
-            // Cleanup Logic...
-            for (int i = item.Sensors.Count - 1; i >= 0; i--)
-            {
-                var s = item.Sensors[i];
-                if (hw.HardwareType == HardwareType.Cpu && (s.Name == "CPU Speed" || s.Name == "CPU Total")) continue;
-
-                if (hw.HardwareType != HardwareType.Cpu)
-                {
-                    // Strict Match Check
-                    var sourceSensor = sensors.FirstOrDefault(src => src.Name == s.Name && src.SensorType.ToString() == s.Type);
-
-                    // If source is gone, OR if value is invalid/null, mark it as stale or remove it.
-                    // Here we remove it to keep UI clean, but could also set to "--"
-                    if (sourceSensor == null)
-                    {
-                        item.Sensors.RemoveAt(i);
-                    }
-                }
-            }
-        }
-
-        // DTO for passing data from bg thread
-        private struct StorageDto
-        {
-            public string Name { get; set; }
-            public string Label { get; set; }
-            public string TotalSize { get; set; }
-            public string FreeSpace { get; set; }
-            public double UsagePercentage { get; set; }
-            public string UsageText { get; set; }
-        }
 
         private void BoostSystem()
         {
@@ -1040,6 +276,7 @@ namespace CortexDNA.ViewModels
             {
                 var result = await _memoryOptimizer.OptimizeMemoryAsync(_lifetime.Token).ConfigureAwait(true);
 
+                if (_disposed) return;
                 if (!result.Success)
                 {
                     StatusMessage = result.ErrorMessage ?? "Boost failed";
@@ -1064,17 +301,21 @@ namespace CortexDNA.ViewModels
             catch (Exception ex)
             {
                 Logger.Log(ex);
+                if (_disposed) return;
                 StatusMessage = "Boost failed unexpectedly";
                 BoostButtonText = "Error";
                 BoostState = UiState.Error;
             }
             finally
             {
-                BoostButtonText = "BOOST";
-                BoostState = UiState.Idle;
-                IsBoosting = false;
-                IsBoostEnabled = true;
-                IsCleanDiskEnabled = !_isCleaningDisk;
+                if (!_disposed)
+                {
+                    BoostButtonText = "BOOST";
+                    BoostState = UiState.Idle;
+                    IsBoosting = false;
+                    IsBoostEnabled = true;
+                    IsCleanDiskEnabled = !_isCleaningDisk;
+                }
             }
         }
 
@@ -1115,7 +356,7 @@ namespace CortexDNA.ViewModels
                 catch (Exception ex)
                 {
                     Logger.Log(ex);
-                    StatusMessage = "Scan failed";
+                    if (!_disposed) StatusMessage = "Scan failed";
                     return;
                 }
 
@@ -1148,7 +389,7 @@ namespace CortexDNA.ViewModels
                 catch (Exception ex)
                 {
                     Logger.Log(ex);
-                    StatusMessage = "Cleanup failed";
+                    if (!_disposed) StatusMessage = "Cleanup failed";
                     return;
                 }
 
@@ -1162,6 +403,7 @@ namespace CortexDNA.ViewModels
                 try { System.Media.SystemSounds.Exclamation.Play(); } catch { }
 
                 _dialogs.ShowCleanupResult(cleanResult);
+                if (_disposed) return;
 
                 StatusMessage = cleanResult.FailedFiles > 0
                     ? $"Freed {DiskCleanupService.FormatByteSize(cleanResult.FreedBytes)} ({cleanResult.FailedFiles} files skipped)"
@@ -1170,16 +412,19 @@ namespace CortexDNA.ViewModels
             catch (Exception ex)
             {
                 Logger.Log(ex);
-                StatusMessage = "Cleanup error - see %LocalAppData%/CortexDNA/Logs/log.txt";
+                if (!_disposed) StatusMessage = "Cleanup error - see %LocalAppData%/CortexDNA/Logs/log.txt";
             }
             finally
             {
-                IsCleaningDisk = false;
-                CleanDiskButtonText = "CLEAN DISK";
-                IsCleanDiskEnabled = true;
-                IsBoostEnabled = !IsBoosting;
-                if (StatusMessage.StartsWith("Scanning") || StatusMessage.StartsWith("Cleaning"))
-                    StatusMessage = "Monitoring Active";
+                if (!_disposed)
+                {
+                    IsCleaningDisk = false;
+                    CleanDiskButtonText = "CLEAN DISK";
+                    IsCleanDiskEnabled = true;
+                    IsBoostEnabled = !IsBoosting;
+                    if (StatusMessage.StartsWith("Scanning") || StatusMessage.StartsWith("Cleaning"))
+                        StatusMessage = "Monitoring Active";
+                }
             }
         }
 
@@ -1192,43 +437,20 @@ namespace CortexDNA.ViewModels
 
         public Task ShutdownAsync()
         {
-            if (_shutdownTask != null) return _shutdownTask;
-            _disposed = true;
-            _lifetime.Cancel();
-            _timer.Stop();
-            return _shutdownTask = ReleaseResourcesAsync();
+            lock (_shutdownLock)
+            {
+                if (_shutdownTask != null) return _shutdownTask;
+                _disposed = true; _monitor.SnapshotAvailable -= SnapshotReceived; _lifetime.Cancel();
+                return _shutdownTask = ReleaseResourcesAsync();
+            }
         }
-
         private async Task ReleaseResourcesAsync()
         {
-            try { await Task.WhenAll(_initialization, _refreshTask, _boostTask, _cleanupTask); }
+            var shutdown = _monitor.ShutdownAsync();
+            try { await Task.WhenAll(_initialization, _boostTask, _cleanupTask, shutdown); }
             catch (OperationCanceledException) { }
             catch (Exception ex) { Logger.Log(ex); }
-            await Task.Run(() =>
-            {
-                lock (_hardwareLock)
-                {
-                    try { _computer.Close(); } catch (Exception ex) { Logger.Log(ex); }
-                    _cpuPerfCounter?.Dispose();
-                    _cpuPerfCounter = null;
-                    _hardwareReady = false;
-                }
-            });
             _lifetime.Dispose();
-        }
-        private class SystemSpecs
-        {
-            public string? OsName { get; set; }
-            public string? BiosInfo { get; set; }
-            public string? MotherboardModel { get; set; }
-            public string? BiosVersion { get; set; }
-            public string? BiosDate { get; set; }
-            public string? CpuName { get; set; }
-            public string? GpuName { get; set; }
-            public string? RamInfo { get; set; }
-            public string? RamTotal { get; set; }
-            public string? RamType { get; set; }
-            public double TotalRamBytes { get; set; }
         }
     }
 }

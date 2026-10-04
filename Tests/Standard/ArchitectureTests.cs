@@ -137,7 +137,7 @@ public sealed class ArchitectureTests
         var hardware = new FakeHardware();
         var cleanup = new FakeCleanup();
         var memory = new FakeMemory();
-        var vm = new HardwareViewModel(cleanup, memory, hardware);
+        var vm = new HardwareViewModel(cleanup, memory, new HardwareMonitorService(new WindowsHardwareSnapshotSource(hardware)));
         var shutdown = vm.ShutdownAsync();
         Assert.Same(shutdown, vm.ShutdownAsync());
         await shutdown.WaitAsync(TimeSpan.FromSeconds(5));

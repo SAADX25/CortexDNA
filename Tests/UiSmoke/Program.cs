@@ -24,16 +24,29 @@ internal static class Program
     private static readonly string Root = FindWorkspace();
     private static readonly string Output = Path.Combine(Root, "artifacts", "phase2-ui");
     [STAThread]
-    private static int Main()
+    private static int Main(string[] args)
     {
         Directory.CreateDirectory(Output);
         var app = new CortexDNA.App(); app.InitializeComponent(); typeof(System.Windows.Application).GetField("_startupUri", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(app, null); app.ShutdownMode = ShutdownMode.OnExplicitShutdown;
         SynchronizationContext.SetSynchronizationContext(new DispatcherSynchronizationContext());
-        var frame = new DispatcherFrame(); var run = Run();
+        var frame = new DispatcherFrame(); var run = args.Contains("--hardware-metrics") ? MeasureHardwareAsync() : Run();
         _ = run.ContinueWith(_ => app.Dispatcher.BeginInvoke(() => frame.Continue = false));
         Dispatcher.PushFrame(frame);
         try { run.GetAwaiter().GetResult(); Console.WriteLine($"UI SMOKE PASSED; CHECKS {_checks}"); return 0; }
         catch (Exception ex) { Console.WriteLine(ex); return 1; }
+    }
+    private static async Task MeasureHardwareAsync()
+    {
+        var output = Path.Combine(Root, "artifacts", "phase3-hardware-metrics.json");
+        using var process = Process.GetCurrentProcess(); var clock = Stopwatch.StartNew();
+        var monitor = new HardwareMonitorService(); int samples = 0; monitor.SnapshotAvailable += _ => Interlocked.Increment(ref samples);
+        await monitor.StartAsync().WaitAsync(TimeSpan.FromSeconds(45));
+        await Task.Delay(1500); process.Refresh(); double cpuBefore = process.TotalProcessorTime.TotalMilliseconds; long managedBefore = GC.GetTotalMemory(false); long workingBefore = process.WorkingSet64;
+        var sampling = Stopwatch.StartNew(); await Task.Delay(5000); process.Refresh(); double foregroundCpuMs = process.TotalProcessorTime.TotalMilliseconds - cpuBefore; long workingAfter = process.WorkingSet64; long managedAfter = GC.GetTotalMemory(false);
+        double foregroundWallMs = sampling.Elapsed.TotalMilliseconds; monitor.SetMode(MonitoringMode.Hidden); await Task.Delay(250); int hiddenBefore = samples; cpuBefore = process.TotalProcessorTime.TotalMilliseconds; var hidden = Stopwatch.StartNew(); await Task.Delay(2000); process.Refresh(); double hiddenCpuMs = process.TotalProcessorTime.TotalMilliseconds - cpuBefore;
+        int historyCount = monitor.History.Length; await monitor.ShutdownAsync();
+        var metrics = new { foregroundWallMs, foregroundCpuMs, workingSetBeforeBytes = workingBefore, workingSetAfterBytes = workingAfter, managedBeforeBytes = managedBefore, managedAfterBytes = managedAfter, hiddenWallMs = hidden.Elapsed.TotalMilliseconds, hiddenCpuMs, hiddenSnapshotDelta = samples - hiddenBefore, historyCount, samples, totalWallMs = clock.Elapsed.TotalMilliseconds, limit = "Short owned-process sample on this machine; no Update-32 comparative baseline. No sensor values/history persisted." };
+        File.WriteAllText(output, System.Text.Json.JsonSerializer.Serialize(metrics, new System.Text.Json.JsonSerializerOptions { WriteIndented = true })); Console.WriteLine(File.ReadAllText(output));
     }
     private static string FindWorkspace()
     {
@@ -61,7 +74,7 @@ internal static class Program
         var errors = new BindingErrors(); PresentationTraceSources.DataBindingSource.Listeners.Add(errors);
         PresentationTraceSources.DataBindingSource.Switch.Level = SourceLevels.Error;
         var hardware = new FakeHardware(); var cleanup = new FakeCleanup(); var memory = new FakeMemory(); var dialogs = new FakeDialogs();
-        var hardwareVm = new HardwareViewModel(cleanup, memory, hardware, dialogs);
+        var hardwareVm = new HardwareViewModel(cleanup, memory, new HardwareMonitorService(new WindowsHardwareSnapshotSource(hardware)), dialogs);
         // Cancel initialization immediately: the smoke exercises presentation without live monitoring or optimization.
         await hardwareVm.ShutdownAsync();
         var startupService = new FakeStartup(); var startup = new StartupViewModel(startupService);
@@ -79,11 +92,34 @@ internal static class Program
         tracked.Navigate(PageId.Home); tracked.Navigate(PageId.Home); tracked.Navigate(PageId.Health); tracked.Dispose(); tracked.Dispose();
         Check(trackHome.Entries == 1 && trackHealth.Entries == 1 && trackHome.Exits == 1 && trackHealth.Exits == 1 && trackHome.Disposals == 1 && trackHealth.Disposals == 1, "navigation lifecycle runs exactly once and disposal is idempotent");
         var gateDialogs = new FakeDialogs(); var gateCleanup = new FakeCleanup(); var gateMemory = new FakeMemory();
-        var gateHardware = new HardwareViewModel(gateCleanup, gateMemory, new FakeHardware(), gateDialogs);
+        var gateHardware = new HardwareViewModel(gateCleanup, gateMemory, new HardwareMonitorService(new WindowsHardwareSnapshotSource(new FakeHardware())), gateDialogs);
         gateHardware.BoostSystemCommand.Execute(null); gateHardware.CleanDiskCommand.Execute(null);
         Check(gateDialogs.ConfirmCalls == 1 && gateMemory.Calls == 0, "declining memory confirmation prevents optimization");
         Check(gateDialogs.CleanupConfirmCalls == 1 && gateCleanup.CleanCalls == 0 && !gateHardware.IsCleaningDisk, "declining cleanup selection prevents deletion and restores operation state");
         await gateHardware.ShutdownAsync();
+        var snapshotMonitor = new FixtureMonitor();
+        var snapshotVm = new HardwareViewModel(new FakeCleanup(), new FakeMemory(), snapshotMonitor, new FakeDialogs());
+        var fixture = HardwareSnapshot.Unavailable(DateTimeOffset.UtcNow) with { Cpus = [new("cpu", "Fixture CPU", 30, 3.1, 45)], Gpus = [new("gpu0", "Same GPU", 12, 40), new("gpu1", "Same GPU", 80, 60)], Memory = new(100, 25), Network = new(1024, 2048) };
+        snapshotMonitor.Publish(fixture);
+        Check(snapshotVm.CpuList.Count == 1 && snapshotVm.GpuList.Count == 2 && snapshotVm.SystemInfo.RamUsagePercent == 75, "snapshot-only UI renders multiple GPUs and memory");
+        var item = snapshotVm.GpuList[0]; snapshotMonitor.Publish(fixture with { Gpus = [new("gpu0", "Same GPU", null, null), new("gpu1", "Same GPU", 90, 65)] });
+        Check(ReferenceEquals(item, snapshotVm.GpuList[0]) && item.Sensors.All(sensor => sensor.Value == "Unavailable"), "missing readings clear stale UI while stable GPU adapters are reused");
+        snapshotMonitor.Publish(fixture with { Memory = new(0, 0) });
+        Check(snapshotVm.SystemInfo.RamUsageText == "Unavailable", "zero-capacity memory is unavailable rather than fabricated telemetry");
+        snapshotMonitor.Publish(fixture);
+        using (var navigationStartup = new StartupViewModel(new FakeStartup()))
+        using (var navigationShell = new MainViewModel(snapshotVm, navigationStartup, new AppearanceService(Path.Combine(Output, "navigation-fixture.json")), new NotificationCenter()))
+        {
+            for (int i = 0; i < 110; i++) navigationShell.Navigation.Navigate((PageId)(i % 11));
+            Check(snapshotMonitor.Starts == 1 && snapshotMonitor.Refreshes == 0, "repeated active navigation owns one monitor and never starts duplicate polling");
+        }
+        int afterDisposeChanges = 0; snapshotVm.PropertyChanged += (_, _) => afterDisposeChanges++;
+        // Publish from a worker while the dispatcher is blocked so its UI update is queued.
+        Task.Run(() => snapshotMonitor.Publish(fixture with { Timestamp = fixture.Timestamp.AddSeconds(5) })).GetAwaiter().GetResult();
+        var before = snapshotVm.CurrentSnapshot; await snapshotVm.ShutdownAsync(); afterDisposeChanges = 0;
+        await System.Windows.Application.Current.Dispatcher.InvokeAsync(() => { }, DispatcherPriority.ApplicationIdle);
+        snapshotMonitor.Publish(fixture);
+        Check(snapshotVm.CurrentSnapshot == before && afterDisposeChanges == 0 && snapshotMonitor.Shutdowns == 1, "queued and late snapshot updates are suppressed after disposal");
         var window = new CortexDNA.MainWindow(shell); window.Show(); await Settle(window);
         var host = (ContentControl)window.FindName("PageHost");
         var pages = new Dictionary<PageId, PageViewModel>();
@@ -137,6 +173,20 @@ internal static class Program
         Check(errors.Errors.Count == 0, "dialogs and closing produce no binding errors: " + string.Join("\n", errors.Errors));
         PresentationTraceSources.DataBindingSource.Listeners.Remove(errors);
         File.WriteAllText(Path.Combine(Output, "metrics.txt"), $"Checks: {_checks}\n110 cached navigation changes (no layout waits): {watch.Elapsed.TotalMilliseconds:F2} ms\nRetained page VMs: {pages.Count}\nHardware sessions: 1\nSmoke monitor opens: {hardware.OpenCalls}\nSmoke system writes: {startupService.Writes + cleanup.CleanCalls + memory.Calls}\nPNG scaled renders do not emulate native Windows DPI settings.\n");
+    }
+    private sealed class FixtureMonitor : IHardwareMonitorService
+    {
+        public event Action<HardwareSnapshot>? SnapshotAvailable;
+        public HardwareSnapshot CurrentSnapshot { get; private set; } = HardwareSnapshot.Unavailable(DateTimeOffset.UtcNow);
+        public System.Collections.Immutable.ImmutableArray<HardwareHistorySample> History => [];
+        public int Shutdowns, Starts, Refreshes; private Task? _shutdown;
+        public void Publish(HardwareSnapshot value) { CurrentSnapshot = value; SnapshotAvailable?.Invoke(value); }
+        public Task StartAsync(CancellationToken token = default) { Starts++; return Task.CompletedTask; }
+        public Task RefreshAsync(CancellationToken token = default) { Refreshes++; return Task.CompletedTask; }
+        public void SetMode(MonitoringMode mode) { }
+        public Task ShutdownAsync() => _shutdown ??= Stop();
+        private Task Stop() { Shutdowns++; return Task.CompletedTask; }
+        public void Dispose() => _ = ShutdownAsync(); public async ValueTask DisposeAsync() => await ShutdownAsync();
     }
     private sealed class TrackingPage(PageId id, MainViewModel shell) : PageViewModel(id, id.ToString(), "Fixture", shell)
     { public int Entries, Exits, Disposals; public override void OnNavigatedTo() { Entries++; base.OnNavigatedTo(); } public override void OnNavigatedFrom() { Exits++; base.OnNavigatedFrom(); } public override void Dispose() { if (!IsDisposed) Disposals++; base.Dispose(); } }

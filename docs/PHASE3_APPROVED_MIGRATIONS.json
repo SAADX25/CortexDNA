@@ -1,0 +1,10 @@
+[
+  "src/CortexDNA.App/ViewModels/HardwareViewModel.cs",
+  "src/CortexDNA.App/Composition/AppComposition.cs",
+  "src/CortexDNA.App/MainWindow.xaml.cs",
+  "src/CortexDNA.Hardware/CortexDNA.Hardware.csproj",
+  "src/CortexDNA.Hardware/HardwareSession.cs",
+  "Tests/Standard/ArchitectureTests.cs",
+  "Tests/UiSmoke/Program.cs",
+  "scripts/Verify-Local.ps1"
+]

@@ -36,7 +36,10 @@ public partial class MainWindow : Window
     private void AppearanceChanged(object? sender, PropertyChangedEventArgs args)
     { if (args.PropertyName == nameof(Services.AppearanceService.MotionEnabled) && !Shell.Appearance.MotionEnabled) Motion.Stop(PageHost); }
     private void VisibilityChanged(object sender, DependencyPropertyChangedEventArgs args)
-    { if (args.NewValue is false) Motion.Stop(PageHost); }
+    {
+        if (args.NewValue is false) { Motion.Stop(PageHost); Shell.HardwareVM.SetMonitoringMode(CortexDNA.Core.MonitoringMode.Hidden); }
+        else Shell.HardwareVM.SetMonitoringMode(WindowState == WindowState.Minimized ? CortexDNA.Core.MonitoringMode.Minimized : CortexDNA.Core.MonitoringMode.Foreground);
+    }
     private void Window_PreviewKeyDown(object sender, System.Windows.Input.KeyEventArgs args)
     {
         if (args.Key == Key.F && Keyboard.Modifiers == ModifierKeys.Control)

@@ -7,7 +7,8 @@
     <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
   </PropertyGroup>
   <ItemGroup>
-    <ProjectReference Include="../CortexDNA.Core/CortexDNA.Core.csproj" />    <PackageReference Include="LibreHardwareMonitorLib" Version="0.9.5" />
+    <ProjectReference Include="../CortexDNA.Core/CortexDNA.Core.csproj" />
+    <ProjectReference Include="../CortexDNA.Infrastructure/CortexDNA.Infrastructure.csproj" />    <PackageReference Include="LibreHardwareMonitorLib" Version="0.9.5" />
     <!-- Preserve the Update-30 resolved Windows API version rather than vendor fallback 10.0.1. -->
     <PackageReference Include="System.Management" Version="10.0.2" />
     <!-- CodeDom was supplied by the existing Windows desktop runtime, not a NuGet package. -->
