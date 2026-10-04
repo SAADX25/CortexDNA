@@ -9,6 +9,8 @@
   <ItemGroup>
     <!-- Existing desktop runtime supplies Windows EventLog APIs used by startup impact. -->
     <FrameworkReference Include="Microsoft.WindowsDesktop.App.WindowsForms" />
+    <!-- The host already supplies this Windows API; do not propagate designer dependencies into action modules. -->
+    <PackageReference Include="System.Management" Version="10.0.2" PrivateAssets="all" />
     <ProjectReference Include="../CortexDNA.Core/CortexDNA.Core.csproj" />
     <ProjectReference Include="../CortexDNA.Infrastructure/CortexDNA.Infrastructure.csproj" />
   </ItemGroup>

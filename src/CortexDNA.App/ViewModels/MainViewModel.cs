@@ -12,7 +12,7 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
     public MainViewModel() : this(AppComposition.CreateShellDependencies()) { }
     private MainViewModel(ShellDependencies dependencies) : this(dependencies.Hardware, dependencies.Startup, dependencies.Appearance, dependencies.Notifications) { }
     public MainViewModel(HardwareViewModel hardware, StartupViewModel startup) : this(hardware, startup, new AppearanceService(), new NotificationCenter()) { }
-    public MainViewModel(HardwareViewModel hardware, StartupViewModel startup, AppearanceService appearance, NotificationCenter notifications)
+    public MainViewModel(HardwareViewModel hardware, StartupViewModel startup, AppearanceService appearance, NotificationCenter notifications, CortexDNA.Core.Health.IHealthCheckService? healthService = null)
     {
         HardwareVM = hardware ?? throw new ArgumentNullException(nameof(hardware));
         StartupVM = startup ?? throw new ArgumentNullException(nameof(startup));
@@ -21,7 +21,8 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
         Operations = new OperationPresentation(hardware, startup);
         Store = new NavigationStore();
         NavigationItems = Enum.GetValues<PageId>().Select((id, index) => new NavigationItemViewModel(id, id.ToString(), (index + 1).ToString("00"))).ToArray();
-        Navigation = new NavigationService(Store, [new HomeViewModel(this),new HealthViewModel(this),new CleanupViewModel(this),new StorageViewModel(this),
+        Health = new HealthViewModel(this, healthService);
+        Navigation = new NavigationService(Store, [new HomeViewModel(this),Health,new CleanupViewModel(this),new StorageViewModel(this),
             new StartupPageViewModel(this),new HardwarePageViewModel(this),new GamingViewModel(this),new SecurityViewModel(this),new ToolsViewModel(this),new SettingsViewModel(this),new DiagnosticsViewModel(this)]);
         NavigateCommand = new RelayCommand<string>(Navigate);
         ToggleThemeCommand = new RelayCommand(Appearance.ToggleTheme);
@@ -35,6 +36,7 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
         Navigation.Navigate(PageId.Home);
     }
     public HardwareViewModel HardwareVM { get; }
+    public HealthViewModel Health { get; }
     public StartupViewModel StartupVM { get; }
     public ICleanupService Cleanup { get; }
     public AppearanceService Appearance { get; }

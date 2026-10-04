@@ -1,0 +1,26 @@
+<UserControl x:Class="CortexDNA.Controls.CortexHealthCore" x:Name="Root" xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:c="clr-namespace:CortexDNA.Controls" Focusable="False">
+  <Grid>
+    <Viewbox Stretch="Uniform" MaxHeight="440">
+      <Canvas Width="900" Height="430">
+        <Path Data="M75,228 L421,43 L831,217 L486,404 Z" Fill="{DynamicResource SurfaceBrush}" Stroke="{DynamicResource CardBorderBrush}" StrokeThickness="10"/>
+        <Path Data="M75,210 L421,25 L831,199 L486,386 Z" Stroke="{DynamicResource AccentBrush}" StrokeThickness="1.5">
+          <Path.Fill><LinearGradientBrush StartPoint="0,0" EndPoint="1,1"><GradientStop Color="{DynamicResource CardBackgroundColor}"/><GradientStop Offset="1" Color="{DynamicResource SurfaceColor}"/></LinearGradientBrush></Path.Fill>
+        </Path>
+        <Path Data="M118,211 L423,48 L789,200 L485,362 Z M149,212 L422,69 L759,200 L485,340 Z" Stroke="{DynamicResource CardBorderBrush}" StrokeThickness="1" Fill="Transparent"/>
+        <Path Data="M451,213 L405,180 L388,144 M451,213 L503,244 L561,214 M451,213 L451,123 L547,72 M451,213 L550,270 L663,304 M451,213 L202,208 M451,213 L372,264 L305,300 M451,213 L350,162 L282,106 M451,213 L423,281 L466,345 M451,213 L600,215 L711,163" Stroke="{DynamicResource AccentBrush}" StrokeThickness="1.5" StrokeDashArray="4,6" Opacity=".25"/>
+        <Path x:Name="Circuit" Stroke="{DynamicResource AccentBrush}" StrokeThickness="2" StrokeDashArray="4,6" Opacity=".7"/>
+        <Path Data="M439,196 L465,207 L465,222 L439,233 L425,219 L425,207 Z" Stroke="{DynamicResource AccentBrush}" StrokeThickness="2" Fill="{DynamicResource AccentSoftBrush}"/>
+        <TextBlock Canvas.Left="396" Canvas.Top="241" Text="CORTEX / DNA" FontSize="11" FontWeight="Bold" Foreground="{DynamicResource MutedTextBrush}"/>
+        <c:HealthCoreNode DataContext="{Binding Nodes[0]}" Canvas.Left="314" Canvas.Top="100"/>
+        <c:HealthCoreNode DataContext="{Binding Nodes[1]}" Canvas.Left="487" Canvas.Top="170"/>
+        <c:HealthCoreNode DataContext="{Binding Nodes[2]}" Canvas.Left="473" Canvas.Top="28"/>
+        <c:HealthCoreNode DataContext="{Binding Nodes[3]}" Canvas.Left="589" Canvas.Top="260"/>
+        <c:HealthCoreNode DataContext="{Binding Nodes[4]}" Canvas.Left="128" Canvas.Top="164"/>
+        <c:HealthCoreNode DataContext="{Binding Nodes[5]}" Canvas.Left="231" Canvas.Top="256"/>
+        <c:HealthCoreNode DataContext="{Binding Nodes[6]}" Canvas.Left="208" Canvas.Top="62"/>
+        <c:HealthCoreNode DataContext="{Binding Nodes[7]}" Canvas.Left="392" Canvas.Top="301"/>
+        <c:HealthCoreNode DataContext="{Binding Nodes[8]}" Canvas.Left="637" Canvas.Top="119"/>
+      </Canvas>
+    </Viewbox>
+  </Grid>
+</UserControl>

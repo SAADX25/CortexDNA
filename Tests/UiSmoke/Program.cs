@@ -8,6 +8,8 @@ using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using System.Windows.Threading;
 using CortexDNA.Core;
+using CortexDNA.Core.Health;
+using CortexDNA.Controls;
 using CortexDNA.Core.Startup;
 using CortexDNA.Hardware;
 using CortexDNA.Models;
@@ -29,7 +31,8 @@ internal static class Program
         Directory.CreateDirectory(Output);
         var app = new CortexDNA.App(); app.InitializeComponent(); typeof(System.Windows.Application).GetField("_startupUri", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(app, null); app.ShutdownMode = ShutdownMode.OnExplicitShutdown;
         SynchronizationContext.SetSynchronizationContext(new DispatcherSynchronizationContext());
-        var frame = new DispatcherFrame(); var run = args.Contains("--hardware-metrics") ? MeasureHardwareAsync() : Run();
+        var frame = new DispatcherFrame(); var run = args.Contains("--hardware-metrics") ? MeasureHardwareAsync() :
+            args.Contains("--health-local") ? ReadLocalHealthAsync() : Run();
         _ = run.ContinueWith(_ => app.Dispatcher.BeginInvoke(() => frame.Continue = false));
         Dispatcher.PushFrame(frame);
         try { run.GetAwaiter().GetResult(); Console.WriteLine($"UI SMOKE PASSED; CHECKS {_checks}"); return 0; }
@@ -47,6 +50,18 @@ internal static class Program
         int historyCount = monitor.History.Length; await monitor.ShutdownAsync();
         var metrics = new { foregroundWallMs, foregroundCpuMs, workingSetBeforeBytes = workingBefore, workingSetAfterBytes = workingAfter, managedBeforeBytes = managedBefore, managedAfterBytes = managedAfter, hiddenWallMs = hidden.Elapsed.TotalMilliseconds, hiddenCpuMs, hiddenSnapshotDelta = samples - hiddenBefore, historyCount, samples, totalWallMs = clock.Elapsed.TotalMilliseconds, limit = "Short owned-process sample on this machine; no Update-32 comparative baseline. No sensor values/history persisted." };
         File.WriteAllText(output, System.Text.Json.JsonSerializer.Serialize(metrics, new System.Text.Json.JsonSerializerOptions { WriteIndented = true })); Console.WriteLine(File.ReadAllText(output));
+    }
+    private static async Task ReadLocalHealthAsync()
+    {
+        using var process=Process.GetCurrentProcess(); var cpu=process.TotalProcessorTime; var clock=Stopwatch.StartNew();
+        var service=new HealthCheckService(SnapshotHealthProviders.Create().Concat(CortexDNA.SystemHealth.WindowsHealthProviders.Create()));
+        var result=await service.ScanAsync(new(HardwareSnapshot.Unavailable(DateTimeOffset.MinValue),DateTimeOffset.Now,Path.GetPathRoot(Environment.SystemDirectory) ?? ""));
+        Check(result.Items.Length==9,"local Windows read-only scan returns every node despite unavailable hardware");
+        Check(result.Items.Where(i=>i.Area is HealthArea.Hardware or HealthArea.Storage or HealthArea.Network).All(i=>i.State==HealthState.Unavailable),"native health scan cannot invent absent hardware telemetry");
+        Check(result.Items.Single(i=>i.Node==HealthNode.Cleanup).State==HealthState.Unavailable,"local health scan does not invent cleanup volume");
+        Check(result.Score.Value==null,"incomplete native scan does not claim a full health score");
+        process.Refresh();
+        Console.WriteLine($"LOCAL HEALTH wallMs={clock.Elapsed.TotalMilliseconds:F1}; cpuMs={(process.TotalProcessorTime-cpu).TotalMilliseconds:F1}; coverage={result.Score.CoveragePercent}; states={string.Join(",",result.Items.Select(i=>$"{i.Node}:{i.State}"))}");
     }
     private static string FindWorkspace()
     {
@@ -81,7 +96,8 @@ internal static class Program
         var preferences = Path.Combine(Output, "preferences.json");
         File.WriteAllText(preferences, "{\"ThemeFileName\":\"DarkTheme.xaml\",\"OpacityPercent\":100}");
         var appearance = new AppearanceService(preferences) { ReducedMotion = true };
-        var shell = new MainViewModel(hardwareVm, startup, appearance, new NotificationCenter());
+        var healthService = new HealthFixtureService();
+        var shell = new MainViewModel(hardwareVm, startup, appearance, new NotificationCenter(), healthService);
         Check(shell.NavigationItems.Count == 11 && shell.CurrentPage?.Id == PageId.Home, "eleven pages, Home initial, no excluded navigation");
         Check(shell.NavigationItems.Count(n => n.IsSelected) == 1, "single selected navigation item");
         var first = shell.CurrentPage!;
@@ -108,9 +124,12 @@ internal static class Program
         Check(snapshotVm.SystemInfo.RamUsageText == "Unavailable", "zero-capacity memory is unavailable rather than fabricated telemetry");
         snapshotMonitor.Publish(fixture);
         using (var navigationStartup = new StartupViewModel(new FakeStartup()))
-        using (var navigationShell = new MainViewModel(snapshotVm, navigationStartup, new AppearanceService(Path.Combine(Output, "navigation-fixture.json")), new NotificationCenter()))
+        using (var navigationShell = new MainViewModel(snapshotVm, navigationStartup, new AppearanceService(Path.Combine(Output, "navigation-fixture.json")), new NotificationCenter(), new HealthFixtureService { Hold = false }))
         {
             for (int i = 0; i < 110; i++) navigationShell.Navigation.Navigate((PageId)(i % 11));
+            navigationShell.Navigation.Navigate(PageId.Health);
+            await navigationShell.Health.StartScanAsync();
+            Check(snapshotMonitor.Starts == 1 && snapshotMonitor.Refreshes == 0, "health scan consumes snapshots without starting or refreshing the hardware monitor");
             Check(snapshotMonitor.Starts == 1 && snapshotMonitor.Refreshes == 0, "repeated active navigation owns one monitor and never starts duplicate polling");
         }
         int afterDisposeChanges = 0; snapshotVm.PropertyChanged += (_, _) => afterDisposeChanges++;
@@ -146,6 +165,7 @@ internal static class Program
         shell.Navigation.Navigate(PageId.Tools); var tools = (ToolsViewModel)shell.CurrentPage!;
         tools.Query = "registry"; Check(tools.Tools.Cast<ToolItem>().Count() == 1, "tools filter finds original allowlisted Registry Editor"); tools.Query = "";
         var cleanupPage = (CleanupViewModel)pages[PageId.Cleanup]; Check(cleanupPage.Locations.Count == 6, "cleanup shows only six original categories");
+        await Phase4Smoke(shell, window, appearance, healthService);
         Check(errors.Errors.Count == 0, "all pages have zero WPF binding errors: " + string.Join("\n", errors.Errors));
         // Reduced motion disables both opacity and translation clocks, even during an active transition.
         appearance.ReducedMotion = false; Motion.Enter(host, true); appearance.ReducedMotion = true; Motion.Stop(host);
@@ -165,10 +185,12 @@ internal static class Program
         window.WindowState = WindowState.Minimized; await Settle(window);
         Check(!window.IsVisible && !host.HasAnimatedProperties, "minimize hides to tray and stops motion");
         window.Show(); window.WindowState = WindowState.Normal; await Settle(window);
+        shell.Navigation.Navigate(PageId.Health); healthService.Reset(); var exitScan=shell.Health.StartScanAsync(); await Task.Delay(30);
         bool closed = false; window.Closed += (_, _) => closed = true;
         typeof(CortexDNA.MainWindow).GetMethod("RequestExit", BindingFlags.Instance | BindingFlags.NonPublic)!.Invoke(window, null);
         for (int i = 0; i < 100 && !closed; i++) await Task.Delay(10);
         Check(closed && shell.CurrentPage == null && pages.Values.All(p => !p.IsActive), "explicit exit waits for shutdown and disposes navigation");
+        Check(exitScan.IsCompleted && healthService.Cancellations > 0, "explicit exit awaits cancellation of the tracked health scan");
         Check(!shell.Navigation.Navigate(PageId.Home) && hardware.CloseCalls == 1, "disposed navigation refuses entry and hardware closes once");
         Check(errors.Errors.Count == 0, "dialogs and closing produce no binding errors: " + string.Join("\n", errors.Errors));
         PresentationTraceSources.DataBindingSource.Listeners.Remove(errors);
@@ -187,6 +209,125 @@ internal static class Program
         public Task ShutdownAsync() => _shutdown ??= Stop();
         private Task Stop() { Shutdowns++; return Task.CompletedTask; }
         public void Dispose() => _ = ShutdownAsync(); public async ValueTask DisposeAsync() => await ShutdownAsync();
+    }
+    private static async Task Phase4Smoke(MainViewModel shell,CortexDNA.MainWindow window,AppearanceService appearance,HealthFixtureService service)
+    {
+        appearance.ThemeFileName="DarkTheme.xaml"; appearance.Apply();
+        appearance.ReducedMotion=false; shell.Navigation.Navigate(PageId.Health); await Settle(window);
+        var host=(ContentControl)window.FindName("PageHost");
+        var page=Descendants(host).OfType<CortexDNA.Views.Pages.HealthPage>().Single();
+        var core=Descendants(page).OfType<CortexHealthCore>().Single();
+        var nodes=Descendants(page).OfType<HealthCoreNode>().ToArray();
+        Check(nodes.Length==9,"original health scene has nine real-state nodes");
+        service.Reset(); var scan=shell.Health.StartScanAsync(); await Task.Delay(65);
+        Check(ReferenceEquals(scan,shell.Health.StartScanAsync()) && service.Calls==1,"repeated scan requests share one tracked operation");
+        Check(nodes.Any(n=>n.HasActiveAnimations) && core.HasActiveAnimations,"scan activates finite node and circuit storyboards");
+        var activeCircuit=(System.Windows.Shapes.Path)core.FindName("Circuit");
+        Check(activeCircuit.Data.Bounds.Left==388 && activeCircuit.Data.Bounds.Right==451,"circuit pulse follows only the current CPU route");
+        appearance.ReducedMotion=true; await Settle(window);
+        Check(nodes.All(n=>!n.HasActiveAnimations) && !core.HasActiveAnimations && !page.HasActiveAnimations,"Reduced Motion removes all health clocks during scan");
+        Check(shell.Health.IsScanning,"Reduced Motion preserves the real read-only scan");
+        shell.Navigation.Navigate(PageId.Home); await scan; await Settle(window);
+        Check(!shell.Health.IsScanning && shell.Health.Result==null && service.Cancellations==1,"navigation away cancels scan and suppresses result publication");
+        Check(nodes.All(n=>!n.HasActiveAnimations) && !core.HasActiveAnimations,"unloaded health scene releases animation clocks");
+        int calls=service.Calls;
+        for(int i=0;i<30;i++) { shell.Navigation.Navigate(PageId.Health); shell.Navigation.Navigate(PageId.Home); }
+        Check(service.Calls==calls,"repeated health navigation creates no scans or polling");
+        shell.Navigation.Navigate(PageId.Health); appearance.ReducedMotion=false; await Settle(window);
+        service.Reset(); scan=shell.Health.StartScanAsync(); await Task.Delay(40); window.Hide(); await scan;
+        page=Descendants(host).OfType<CortexDNA.Views.Pages.HealthPage>().Single();
+        Check(!shell.Health.IsScanning && !page.HasActiveAnimations && Descendants(page).OfType<HealthCoreNode>().All(n=>!n.HasActiveAnimations),"hidden window cancels health scan and releases clocks");
+        window.Show(); await Settle(window); Check(service.Calls==calls+1,"showing the window does not restart a canceled scan");
+        service.Reset(); scan=shell.Health.StartScanAsync(); await Task.Delay(40);
+        window.WindowState=WindowState.Minimized; await scan;
+        Check(!window.IsVisible && !shell.Health.IsScanning,"minimized tray state cancels health scan without polling");
+        window.Show(); window.WindowState=WindowState.Normal; await Settle(window);
+        service.Reset(); scan=shell.Health.StartScanAsync(); await Task.Delay(50); service.Complete(); await scan; await Task.Delay(40);
+        page=Descendants(host).OfType<CortexDNA.Views.Pages.HealthPage>().Single();
+        Check(page.HasActiveAnimations && shell.Health.Result?.Score.Value==92,"completion animates the explainable score");
+        await Task.Delay(750);
+        Check(!page.HasActiveAnimations && Descendants(page).OfType<HealthCoreNode>().All(n=>!n.HasActiveAnimations) &&
+            !Descendants(page).OfType<CortexHealthCore>().Single().HasActiveAnimations,"completed scene has no retained animation clocks");
+        Capture(window,"Phase4-Health-Dark.png");
+        appearance.ThemeFileName="LightTheme.xaml"; appearance.Apply(); await Settle(window); Capture(window,"Phase4-Health-Light.png");
+        Check(shell.Health.Result?.Score.Deductions.Single().PointsDeducted==8 && shell.Health.Areas.Count==9,"report exposes all areas and exact score deductions");
+        var previousProgress=service.LastProgress;
+        service.Reset(); scan=shell.Health.StartScanAsync(); await Task.Delay(30); appearance.ReducedMotion=true; service.Complete(); await scan; await Settle(window);
+        Check(!page.HasActiveAnimations,"Reduced Motion publishes completion without score clocks");
+        service.Reset(); var nextScan=shell.Health.StartScanAsync(); await Task.Delay(30);
+        previousProgress?.Report(new([HealthNode.Security],1,8,[])); await Task.Delay(30);
+        Check(shell.Health.Nodes.Single(n=>n.Node==HealthNode.Cpu).IsCurrent && !shell.Health.Nodes.Single(n=>n.Node==HealthNode.Security).IsCurrent,
+            "late progress from a completed scan cannot enter the next scan");
+        service.Complete(); await nextScan;
+        await Task.Delay(800);
+        Console.WriteLine("PERF animated elements: "+string.Join(", ",Descendants(window).OfType<FrameworkElement>()
+            .Where(e=>e.HasAnimatedProperties || e.RenderTransform.HasAnimatedProperties)
+            .Select(e=>$"{e.GetType().Name}/{e.Name}/visible={e.IsVisible}")));
+        using var ownedProcess=Process.GetCurrentProcess(); ownedProcess.Refresh();
+        var cpu=ownedProcess.TotalProcessorTime; long memory=ownedProcess.WorkingSet64; long managed=GC.GetTotalMemory(false);
+        var idle=Stopwatch.StartNew(); await Task.Delay(2000); ownedProcess.Refresh();
+        double healthCpu=(ownedProcess.TotalProcessorTime-cpu).TotalMilliseconds;
+        double healthWall=idle.Elapsed.TotalMilliseconds; long healthWorking=ownedProcess.WorkingSet64; long healthManaged=GC.GetTotalMemory(false);
+        var currentCore=Descendants(page).OfType<CortexHealthCore>().Single();
+        currentCore.Visibility=Visibility.Collapsed; await Settle(window); await Task.Delay(300);
+        ownedProcess.Refresh(); cpu=ownedProcess.TotalProcessorTime; var collapsedIdle=Stopwatch.StartNew(); await Task.Delay(2000); ownedProcess.Refresh();
+        double collapsedCpu=(ownedProcess.TotalProcessorTime-cpu).TotalMilliseconds; double collapsedWall=collapsedIdle.Elapsed.TotalMilliseconds;
+        currentCore.Visibility=Visibility.Visible; await Settle(window);
+        shell.Navigation.Navigate(PageId.Home); await Settle(window); await Task.Delay(800);
+        ownedProcess.Refresh(); cpu=ownedProcess.TotalProcessorTime; var homeIdle=Stopwatch.StartNew(); await Task.Delay(2000); ownedProcess.Refresh();
+        double homeCpu=(ownedProcess.TotalProcessorTime-cpu).TotalMilliseconds;
+        double homeWall=homeIdle.Elapsed.TotalMilliseconds;
+        window.Hide(); await Task.Delay(200); ownedProcess.Refresh(); cpu=ownedProcess.TotalProcessorTime; var hiddenIdle=Stopwatch.StartNew(); await Task.Delay(2000); ownedProcess.Refresh();
+        double hiddenCpu=(ownedProcess.TotalProcessorTime-cpu).TotalMilliseconds;
+        double hiddenWall=hiddenIdle.Elapsed.TotalMilliseconds;
+        var isolatedScene=new Window { Width=950,Height=520,Content=new CortexHealthCore { DataContext=shell.Health },Background=System.Windows.Media.Brushes.Black };
+        isolatedScene.Show(); await Task.Delay(500); ownedProcess.Refresh(); cpu=ownedProcess.TotalProcessorTime;
+        var isolatedIdle=Stopwatch.StartNew(); await Task.Delay(2000); ownedProcess.Refresh();
+        double isolatedCpu=(ownedProcess.TotalProcessorTime-cpu).TotalMilliseconds; double isolatedWall=isolatedIdle.Elapsed.TotalMilliseconds;
+        isolatedScene.Close();
+        window.Show(); await Settle(window);
+        File.WriteAllText(Path.Combine(Root,"artifacts","phase4-ui-metrics.json"),
+            System.Text.Json.JsonSerializer.Serialize(new { healthIdleWallMs=healthWall,healthIdleCpuMs=healthCpu,
+                homeIdleWallMs=homeWall,homeIdleCpuMs=homeCpu,hiddenIdleWallMs=hiddenWall,hiddenIdleCpuMs=hiddenCpu,
+                coreCollapsedWallMs=collapsedWall,coreCollapsedCpuMs=collapsedCpu,isolatedCoreWallMs=isolatedWall,isolatedCoreCpuMs=isolatedCpu,
+                workingSetBeforeBytes=memory,workingSetAfterBytes=healthWorking,managedBeforeBytes=managed,managedAfterBytes=healthManaged,
+                activeHealthClocks=0,scope="Short owned WPF fixture process samples; no live hardware monitoring or historical baseline. Home is an in-process comparison, not a controlled benchmark." },
+                new System.Text.Json.JsonSerializerOptions { WriteIndented=true }));
+        using(var disposed=new HealthViewModel(shell,service))
+        {
+            disposed.OnNavigatedTo(); service.Reset(); var disposedScan=disposed.StartScanAsync(); await Task.Delay(30);
+            disposed.Dispose(); int changes=0; disposed.PropertyChanged+=(_,_)=>changes++;
+            await disposedScan; service.EmitLateProgress(); await Task.Delay(30);
+            Check(changes==0 && disposed.Result==null,"disposed health VM ignores cancellation completions and late progress");
+            Check(ReferenceEquals(disposed.ActiveScan,disposed.StartScanAsync()),"disposed health VM cannot start another operation");
+        }
+        shell.Navigation.Navigate(PageId.Diagnostics);
+    }
+    private sealed class HealthFixtureService : IHealthCheckService
+    {
+        private TaskCompletionSource _release=new(TaskCreationOptions.RunContinuationsAsynchronously);
+        private IProgress<HealthCheckProgress>? _progress;
+        public IProgress<HealthCheckProgress>? LastProgress => _progress;
+        public bool Hold=true;
+        public int Calls,Cancellations;
+        public void Reset() { _release=new(TaskCreationOptions.RunContinuationsAsynchronously); Hold=true; }
+        public void Complete()=>_release.TrySetResult();
+        public void EmitLateProgress()=>_progress?.Report(new([HealthNode.Cpu],0,8,[]));
+        public async Task<HealthCheckResult> ScanAsync(HealthCheckContext context,IProgress<HealthCheckProgress>? progress=null,CancellationToken token=default)
+        {
+            Calls++; _progress=progress; progress?.Report(new([HealthNode.Cpu],0,8,[]));
+            try { if(Hold) await _release.Task.WaitAsync(token); }
+            catch(OperationCanceledException) { Cancellations++; throw; }
+            (HealthNode Node,HealthArea Area,int Weight)[] definitions=[
+                (HealthNode.Cpu,HealthArea.Hardware,4),(HealthNode.Gpu,HealthArea.Hardware,3),(HealthNode.Memory,HealthArea.Hardware,3),
+                (HealthNode.Storage,HealthArea.Storage,20),(HealthNode.Network,HealthArea.Network,0),(HealthNode.Startup,HealthArea.Startup,20),
+                (HealthNode.Security,HealthArea.Security,25),(HealthNode.Cleanup,HealthArea.Maintenance,10),(HealthNode.Updates,HealthArea.Updates,15)];
+            var items=definitions.Select(d=>new HealthCheckItem(d.Node,d.Area,d.Node==HealthNode.Startup ? HealthState.OptimizationAvailable : HealthState.Healthy,
+                "Owned fixture observation",d.Node==HealthNode.Startup ? "Two measured high-impact apps, four points each." : "Owned fixture explanation.",
+                d.Weight,d.Node==HealthNode.Startup ? 8 : 0,d.Node==HealthNode.Startup ? "Review the existing Startup page." : null)).ToArray();
+            return new(DateTimeOffset.Now,context.Hardware.Timestamp,"Owned Windows fixture","CPU / GPU / RAM fixture",
+                System.Collections.Immutable.ImmutableArray.CreateRange(items),HealthScore.Calculate(items));
+        }
     }
     private sealed class TrackingPage(PageId id, MainViewModel shell) : PageViewModel(id, id.ToString(), "Fixture", shell)
     { public int Entries, Exits, Disposals; public override void OnNavigatedTo() { Entries++; base.OnNavigatedTo(); } public override void OnNavigatedFrom() { Exits++; base.OnNavigatedFrom(); } public override void Dispose() { if (!IsDisposed) Disposals++; base.Dispose(); } }

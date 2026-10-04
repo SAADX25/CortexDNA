@@ -14,4 +14,4 @@ Invoke-Dotnet @('restore', 'src/CortexDNA.App/CortexDNA.App.csproj', '-r', 'win-
 & "$PSScriptRoot/Build-Release.ps1" -NoRestore
 if ($LASTEXITCODE -ne 0) { throw 'Release verification failed.' }
 
-& "$PSScriptRoot/Verify-Phase3.ps1"
+& "$PSScriptRoot/Verify-Phase4.ps1"

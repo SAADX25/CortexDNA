@@ -104,6 +104,7 @@ public partial class MainWindow : Window
             args.Cancel = true;
             if (_shutdownStarted) return;
             _shutdownStarted = true; IsEnabled = false; Motion.Stop(PageHost);
+            await Shell.Health.ShutdownAsync();
             await Shell.HardwareVM.ShutdownAsync();
             await Shell.StartupVM.ShutdownAsync();
             _shutdownComplete = true; _ = Dispatcher.BeginInvoke(Close); return;
